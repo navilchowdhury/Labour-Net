@@ -1,0 +1,117 @@
+
+const User = require('../models/user');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+exports.register = async (req, res) => {
+  try {
+    const { role, name, contact, address, dob, sex, password, jobPreferences, availability, workHistory, jobTypes, hiringPreferences, isCompany } = req.body;
+    
+    // Check if user with this name already exists
+    const existingUser = await User.findOne({ name });
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this name already exists' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({
+      role, name, contact, address, dob: new Date(dob), sex, password: hashedPassword,
+      jobPreferences, availability, workHistory, jobTypes, hiringPreferences, isCompany
+    });
+    await user.save();
+    res.status(201).json({ message: 'User registered' });
+  } catch (err) {
+    console.error('Registration error:', err);
+    if (err.code === 11000) {
+      res.status(400).json({ error: 'A user with this name already exists' });
+    } else {
+      res.status(400).json({ error: err.message });
+    }
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const { name, password } = req.body;
+    const user = await User.findOne({ name });
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+    
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not set');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+    console.log('Login successful for user:', user.name, 'Token generated');
+    res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.getProfile = async (req, res) => {
+  try {
+    console.log('Profile request - User ID:', req.user.id);
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      console.log('User not found for ID:', req.user.id);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.log('Profile fetched successfully for user:', user.name);
+    res.json(user);
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, contact, address, dob, sex, jobPreferences, availability, workHistory, jobTypes, hiringPreferences, isCompany } = req.body;
+    
+    // Check if name is being changed and if it's already taken by another user
+    if (name !== req.user.name) {
+      const existingUser = await User.findOne({ name, _id: { $ne: req.user.id } });
+      if (existingUser) {
+        return res.status(400).json({ error: 'A user with this name already exists' });
+      }
+    }
+    
+    const updateData = {
+      name,
+      contact,
+      address,
+      dob: new Date(dob),
+      sex,
+      jobPreferences,
+      availability,
+      workHistory,
+      jobTypes,
+      hiringPreferences,
+      isCompany
+    };
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('Profile updated successfully for user:', updatedUser.name);
+    res.json(updatedUser);
+  } catch (err) {
+    console.error('Profile update error:', err);
+    if (err.code === 11000) {
+      res.status(400).json({ error: 'A user with this name already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  }
+};
