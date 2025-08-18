@@ -1,134 +1,115 @@
-# Labour Net - Job Portal Platform
+# 🚀 Labour NET
 
-A full-stack web application that connects workers and employers for various job opportunities. Built with React.js frontend and Node.js/Express.js backend with MongoDB database.
+A comprehensive job marketplace platform connecting skilled workers with employers. Built with modern web technologies for seamless job searching, application management, and hiring processes.
 
-## 🚀 Features
+## ✨ Features
 
-### For Workers:
-- **User Registration & Profile Management**: Complete profile with job preferences, availability, and work history
-- **Job Search**: Browse available jobs with filtering by category and salary
-- **Contact Employers**: Direct access to employer contact information
-- **Profile Editing**: Update personal information and job preferences
+- **👷 Worker Features:**
+  - Browse available jobs by category
+  - Apply for jobs matching your expertise
+  - Track application status
+  - Manage profile and preferences
+  - View job history
 
-### For Employers:
-- **Company Registration**: Register as an employer or company
-- **Job Posting**: Create and manage job listings
-- **Hiring Preferences**: Set specific requirements for job candidates
-- **Profile Management**: Manage company information and hiring preferences
+- **🏢 Employer Features:**
+  - Post job listings
+  - Review worker applications
+  - Assign workers to jobs
+  - Manage job status
+  - View worker profiles
 
-### General Features:
-- **Authentication**: Secure login/logout with JWT tokens
-- **Role-based Access**: Different interfaces for workers and employers
-- **Responsive Design**: Works on desktop and mobile devices
-- **Real-time Updates**: Dynamic job listings and profile updates
+- **🔍 Job Categories:**
+  - Plumbing
+  - Cooking
+  - Painting
+  - Electrical
+  - Cleaning
 
 ## 🛠️ Tech Stack
 
-### Frontend:
-- **React.js**: User interface and components
-- **React Router**: Navigation and routing
-- **Axios**: HTTP client for API calls
-- **CSS**: Styling and responsive design
+### Backend
+- **Node.js** - Runtime environment
+- **Express.js** - Web framework
+- **MongoDB** - Database
+- **Mongoose** - ODM for MongoDB
+- **JWT** - Authentication
+- **bcrypt** - Password hashing
 
-### Backend:
-- **Node.js**: Server runtime
-- **Express.js**: Web framework
-- **MongoDB**: Database
-- **Mongoose**: MongoDB object modeling
-- **JWT**: Authentication tokens
-- **bcryptjs**: Password hashing
-- **CORS**: Cross-origin resource sharing
+### Frontend
+- **React** - UI library
+- **React Router** - Navigation
+- **Axios** - HTTP client
+- **CSS-in-JS** - Styling
 
 ## 📋 Prerequisites
 
-Before running this application, make sure you have the following installed:
-- **Node.js** (v14 or higher)
-- **npm** (Node Package Manager)
-- **MongoDB** (local installation or MongoDB Atlas account)
+- Node.js (v14 or higher)
+- MongoDB
+- npm or yarn
 
-## 🚀 Installation & Setup
+## 🚀 Installation
 
-### 1. Clone the Repository
+### 1. Clone the repository
 ```bash
-git clone <your-repository-url>
-cd labour-net
+git clone <repository-url>
+cd Labour-Net
 ```
 
-### 2. Backend Setup
+### 2. Install backend dependencies
 ```bash
-# Navigate to backend directory
 cd backend
-
-# Install dependencies
 npm install
+```
 
-# Create environment file
-# Create a .env file in the backend directory with the following variables:
-MONGO_URI=mongodb://localhost:27017/labour_net
-JWT_SECRET=your_super_secret_jwt_key_here
+### 3. Install frontend dependencies
+```bash
+cd ../frontend
+npm install
+```
+
+### 4. Environment Setup
+Create a `.env` file in the backend directory:
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
 PORT=5000
+```
 
-# Start the development server
+### 5. Start the application
+
+#### Start Backend Server
+```bash
+cd backend
 npm run dev
 ```
 
-### 3. Frontend Setup
+#### Start Frontend Development Server
 ```bash
-# Open a new terminal and navigate to frontend directory
 cd frontend
-
-# Install dependencies
-npm install
-
-# Start the development server
 npm start
 ```
 
-### 4. Database Setup
-Make sure MongoDB is running on your system:
-- **Local MongoDB**: Start MongoDB service
-- **MongoDB Atlas**: Use the connection string from your Atlas cluster
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000
 
-## 📁 Project Structure
+## 📱 Usage
 
-```
-labour-net/
-├── backend/
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   └── jobController.js
-│   ├── middleware/
-│   │   └── auth.js
-│   ├── models/
-│   │   ├── user.js
-│   │   └── Job.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   └── job.js
-│   ├── server.js
-│   └── package.json
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Authform.js
-│   │   │   ├── Joblist.js
-│   │   │   ├── JobPostForm.js
-│   │   │   └── Navbar.js
-│   │   ├── pages/
-│   │   │   ├── Home.js
-│   │   │   ├── Jobs.js
-│   │   │   ├── Login.js
-│   │   │   ├── Profile.js
-│   │   │   └── Register.js
-│   │   ├── App.js
-│   │   └── index.js
-│   └── package.json
-├── .gitignore
-└── README.md
-```
+### For Workers
+1. **Register** with your skills and preferences
+2. **Browse** available jobs in your area
+3. **Apply** for jobs that match your expertise
+4. **Track** your application status
+5. **Manage** your profile and preferences
 
-## 🔧 API Endpoints
+### For Employers
+1. **Register** as an employer
+2. **Post** job listings with requirements
+3. **Review** worker applications
+4. **Assign** workers to jobs
+5. **Manage** job completion status
+
+## 🔐 API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - User registration
@@ -137,74 +118,42 @@ labour-net/
 - `PUT /api/auth/profile` - Update user profile
 
 ### Jobs
-- `POST /api/jobs` - Create new job (employers only)
-- `GET /api/jobs` - Get all jobs with optional filtering
+- `GET /api/jobs` - Get all jobs
+- `POST /api/jobs` - Create new job
+- `PUT /api/jobs/:id` - Update job
+- `DELETE /api/jobs/:id` - Delete job
 
-## 👥 User Roles
+### Applications
+- `POST /api/applications/apply` - Apply for a job
+- `GET /api/applications/job/:jobId` - Get applications for a job
+- `POST /api/applications/assign` - Assign worker to job
+- `GET /api/applications/worker` - Get worker's applications
 
-### Worker
-- Can browse and search jobs
-- Can view employer contact information
-- Can manage their profile and job preferences
-- Cannot post jobs
+## 🎨 Features
 
-### Employer
-- Can post job listings
-- Can manage company profile
-- Can set hiring preferences
-- Can view all posted jobs
-
-## 🔒 Security Features
-
-- **Password Hashing**: All passwords are hashed using bcrypt
-- **JWT Authentication**: Secure token-based authentication
-- **Input Validation**: Server-side validation for all inputs
-- **CORS Protection**: Cross-origin request protection
-- **Environment Variables**: Sensitive data stored in environment variables
-
-## 🎨 UI/UX Features
-
-- **Responsive Design**: Works on all device sizes
-- **Clean Interface**: Modern and intuitive user interface
-- **Role-based Navigation**: Different menus for workers and employers
-- **Form Validation**: Real-time form validation and error messages
-- **Loading States**: Visual feedback during operations
-
-## 🚀 Deployment
-
-### Backend Deployment (Heroku/Netlify)
-1. Set up environment variables in your hosting platform
-2. Configure MongoDB connection (Atlas recommended for production)
-3. Deploy the backend code
-
-### Frontend Deployment (Netlify/Vercel)
-1. Build the React app: `npm run build`
-2. Deploy the build folder to your hosting platform
-3. Configure environment variables for API endpoints
+- **Responsive Design** - Works on all devices
+- **Modern UI/UX** - Beautiful gradients and animations
+- **Real-time Updates** - Instant application status updates
+- **Smart Matching** - Expertise-based job recommendations
+- **Secure Authentication** - JWT-based security
+- **Profile Management** - Comprehensive user profiles
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Commit your changes: `git commit -am 'Add feature'`
-4. Push to the branch: `git push origin feature-name`
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
 5. Submit a pull request
 
-## 📝 License
+## 📄 License
 
 This project is licensed under the MIT License.
 
-## 👨‍💻 Author
+## 🆘 Support
 
-[Your Name] - [Your Email]
-
-## 🙏 Acknowledgments
-
-- React.js community
-- Node.js and Express.js documentation
-- MongoDB documentation
-- All contributors and testers
+For support and questions, please open an issue in the repository.
 
 ---
 
-**Note**: Make sure to replace placeholder values like `<your-repository-url>`, `[Your Name]`, and `[Your Email]` with your actual information before pushing to GitHub. 
+**Built with ❤️ for connecting workers with opportunities worldwide** 

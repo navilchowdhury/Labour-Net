@@ -10,9 +10,11 @@ app.use(express.json());
 // Import routes
 const authRoutes = require('./routes/auth');
 const jobRoutes = require('./routes/job');
+const applicationRoutes = require('./routes/application');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/applications', applicationRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {

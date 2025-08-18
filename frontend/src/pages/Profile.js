@@ -5,11 +5,28 @@ import { useNavigate } from 'react-router-dom';
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({});
   const [error, setError] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [updateLoading, setUpdateLoading] = useState(false);
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+
+  // Professional corporate color scheme
+  const colors = {
+    primary: '#2c5aa0',
+    secondary: '#1a202c',
+    accent: '#3182ce',
+    success: '#38a169',
+    warning: '#d69e2e',
+    danger: '#e53e3e',
+    light: '#f7fafc',
+    dark: '#1a202c',
+    gray: '#4a5568',
+    lightGray: '#e2e8f0',
+    white: '#ffffff'
+  };
+
+  const jobCategories = ['plumbing', 'cooking', 'painting', 'electrical', 'cleaning'];
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -17,421 +34,538 @@ export default function Profile() {
       navigate('/login');
       return;
     }
-
-    const fetchProfile = async () => {
-      try {
-        console.log('Fetching profile with token:', token);
-        const response = await axios.get('http://localhost:5000/api/auth/profile', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        console.log('Profile response:', response.data);
-        setUser(response.data);
-        setEditForm({
-          name: response.data.name,
-          contact: response.data.contact,
-          address: response.data.address,
-          dob: response.data.dob ? new Date(response.data.dob).toISOString().split('T')[0] : '',
-          sex: response.data.sex,
-          jobPreferences: response.data.jobPreferences ? response.data.jobPreferences.join(', ') : '',
-          availability: response.data.availability || '',
-          workHistory: response.data.workHistory || '',
-          jobTypes: response.data.jobTypes ? response.data.jobTypes.join(', ') : '',
-          hiringPreferences: response.data.hiringPreferences || '',
-          isCompany: response.data.isCompany || false
-        });
-      } catch (err) {
-        console.error('Error fetching profile:', err);
-        console.error('Error response:', err.response?.data);
-        setError('Failed to load profile');
-        if (err.response?.status === 401) {
-          console.log('Unauthorized - redirecting to login');
-          localStorage.removeItem('token');
-          localStorage.removeItem('role');
-          navigate('/login');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProfile();
   }, [navigate]);
 
-  const handleEditChange = (e) => {
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/auth/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data);
+      setForm(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditForm(prev => ({
+    setForm(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const handleUpdate = async () => {
-    setUpdateLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const payload = {
-        ...editForm,
-        jobPreferences: editForm.jobPreferences ? editForm.jobPreferences.split(',').map(s => s.trim()) : [],
-        jobTypes: editForm.jobTypes ? editForm.jobTypes.split(',').map(s => s.trim()) : [],
-      };
-
-      const response = await axios.put('http://localhost:5000/api/auth/profile', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setUser(response.data);
-      setIsEditing(false);
-      setError('');
-    } catch (err) {
-      console.error('Update error:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to update profile';
-      setError(errorMessage);
-    } finally {
-      setUpdateLoading(false);
-    }
+  const handleJobPreferenceChange = (category) => {
+    setForm(prev => ({
+      ...prev,
+      jobPreferences: prev.jobPreferences.includes(category)
+        ? prev.jobPreferences.filter(pref => pref !== category)
+        : [...prev.jobPreferences, category]
+    }));
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not provided';
-    return new Date(dateString).toLocaleDateString();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put('http://localhost:5000/api/auth/profile', form, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSuccess('Profile updated successfully!');
+      setEditing(false);
+      fetchProfile();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setError(error.response?.data?.error || 'Error updating profile');
+      setTimeout(() => setError(''), 3000);
+    }
   };
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', marginTop: 50 }}>
-        <h3>Loading profile...</h3>
-      </div>
-    );
-  }
-
-  if (error && !isEditing) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: 50 }}>
-        <h3 style={{ color: 'red' }}>{error}</h3>
+      <div style={{ 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⏳</div>
+          <h2 style={{ color: colors.dark }}>Loading your profile...</h2>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div style={{ textAlign: 'center', marginTop: 50 }}>
-        <h3>No profile data found</h3>
+      <div style={{ 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>❌</div>
+          <h2 style={{ color: colors.dark }}>Profile not found</h2>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
-      <h2 style={{ textAlign: 'center', marginBottom: 30, color: '#2d3e50' }}>
-        Profile - {user.role === 'worker' ? 'Worker' : 'Employer'}
-      </h2>
-      
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: 30, 
-        borderRadius: 10, 
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)' 
-      }}>
-        {!isEditing ? (
-          <>
-            {/* Basic Information */}
-            <div style={{ marginBottom: 30 }}>
-              <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                Basic Information
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                <div>
-                  <strong>Name:</strong> {user.name}
-                </div>
-                <div>
-                  <strong>Role:</strong> {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </div>
-                <div>
-                  <strong>Contact:</strong> {user.contact}
-                </div>
-                <div>
-                  <strong>Date of Birth:</strong> {formatDate(user.dob)}
-                </div>
-                <div>
-                  <strong>Sex:</strong> {user.sex}
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <strong>Address:</strong> {user.address}
-                </div>
-              </div>
-            </div>
+    <div style={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
+      padding: '20px'
+    }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ 
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, 
+          padding: '40px', 
+          borderRadius: '12px', 
+          marginBottom: '30px',
+          color: colors.white,
+          textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(44, 90, 160, 0.2)'
+        }}>
+          <div style={{ 
+            width: '80px',
+            height: '80px',
+            background: colors.white,
+            borderRadius: '50%',
+            margin: '0 auto 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.primary,
+            fontSize: '2rem',
+            fontWeight: 'bold'
+          }}>
+            {user.role === 'worker' ? 'P' : 'E'}
+          </div>
+          <h1 style={{ 
+            margin: '0 0 10px 0', 
+            fontSize: '2.5rem', 
+            fontWeight: '700',
+            letterSpacing: '-0.5px'
+          }}>
+            {user.name}
+          </h1>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '1.1rem', 
+            opacity: 0.9,
+            textTransform: 'capitalize'
+          }}>
+            {user.role} Profile
+          </p>
+        </div>
 
-            {/* Role-specific Information */}
-            {user.role === 'worker' && (
-              <div style={{ marginBottom: 30 }}>
-                <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                  Worker Information
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Job Preferences:</strong> 
-                    {user.jobPreferences && user.jobPreferences.length > 0 
-                      ? user.jobPreferences.join(', ') 
-                      : 'Not specified'}
-                  </div>
-                  <div>
-                    <strong>Availability:</strong> {user.availability || 'Not specified'}
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Work History:</strong> {user.workHistory || 'Not specified'}
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Success/Error Messages */}
+        {success && (
+          <div style={{ 
+            background: colors.success, 
+            color: colors.white, 
+            padding: '15px', 
+            borderRadius: '8px', 
+            marginBottom: '20px',
+            textAlign: 'center',
+            fontWeight: '600'
+          }}>
+            {success}
+          </div>
+        )}
+        
+        {error && (
+          <div style={{ 
+            background: colors.danger, 
+            color: colors.white, 
+            padding: '15px', 
+            borderRadius: '8px', 
+            marginBottom: '20px',
+            textAlign: 'center',
+            fontWeight: '600'
+          }}>
+            {error}
+          </div>
+        )}
 
-            {user.role === 'employer' && (
-              <div style={{ marginBottom: 30 }}>
-                <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                  Employer Information
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Job Types:</strong> 
-                    {user.jobTypes && user.jobTypes.length > 0 
-                      ? user.jobTypes.join(', ') 
-                      : 'Not specified'}
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Hiring Preferences:</strong> {user.hiringPreferences || 'Not specified'}
-                  </div>
-                  <div>
-                    <strong>Company Account:</strong> {user.isCompany ? 'Yes' : 'No'}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div style={{ textAlign: 'center', marginTop: 30 }}>
-              <button 
-                onClick={() => setIsEditing(true)}
-                style={{
-                  padding: '10px 20px',
-                  background: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: 'pointer'
-                }}
-              >
-                Edit Profile
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Edit Form */}
-            <div style={{ marginBottom: 30 }}>
-              <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                Edit Basic Information
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* Profile Content */}
+        <div style={{ 
+          background: colors.white, 
+          padding: '30px', 
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+          border: '1px solid colors.lightGray'
+        }}>
+          {editing ? (
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '25px' }}>
                 <div>
-                  <label>Name:</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                    👤 Full Name
+                  </label>
                   <input
-                    type="text"
                     name="name"
-                    value={editForm.name}
-                    onChange={handleEditChange}
-                    style={{ width: '100%', padding: 8, marginTop: 5 }}
-                    required
+                    value={form.name}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '16px'
+                    }}
                   />
                 </div>
+                
                 <div>
-                  <label>Contact:</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                    📞 Contact Number
+                  </label>
                   <input
-                    type="text"
                     name="contact"
-                    value={editForm.contact}
-                    onChange={handleEditChange}
-                    style={{ width: '100%', padding: 8, marginTop: 5 }}
-                    required
+                    value={form.contact}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '16px'
+                    }}
                   />
                 </div>
+                
                 <div>
-                  <label>Date of Birth:</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                    📍 Address
+                  </label>
                   <input
-                    type="date"
-                    name="dob"
-                    value={editForm.dob}
-                    onChange={handleEditChange}
-                    style={{ width: '100%', padding: 8, marginTop: 5 }}
-                    required
+                    name="address"
+                    value={form.address}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '16px'
+                    }}
                   />
                 </div>
+                
                 <div>
-                  <label>Sex:</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                    📅 Date of Birth
+                  </label>
+                  <input
+                    name="dob"
+                    type="date"
+                    value={form.dob ? new Date(form.dob).toISOString().split('T')[0] : ''}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                    👤 Gender
+                  </label>
                   <select
                     name="sex"
-                    value={editForm.sex}
-                    onChange={handleEditChange}
-                    style={{ width: '100%', padding: 8, marginTop: 5 }}
-                    required
+                    value={form.sex}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '16px'
+                    }}
                   >
-                    <option value="">Select Sex</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="male">👨 Male</option>
+                    <option value="female">👩 Female</option>
+                    <option value="other">🌈 Other</option>
                   </select>
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label>Address:</label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={editForm.address}
-                    onChange={handleEditChange}
-                    style={{ width: '100%', padding: 8, marginTop: 5 }}
-                    required
-                  />
-                </div>
               </div>
-            </div>
 
-            {/* Role-specific Edit Fields */}
-            {user.role === 'worker' && (
-              <div style={{ marginBottom: 30 }}>
-                <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                  Edit Worker Information
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Job Preferences (comma separated):</label>
-                    <input
-                      type="text"
-                      name="jobPreferences"
-                      value={editForm.jobPreferences}
-                      onChange={handleEditChange}
-                      style={{ width: '100%', padding: 8, marginTop: 5 }}
-                      placeholder="e.g., construction, cleaning, delivery"
-                    />
+              {user.role === 'worker' && (
+                <>
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ display: 'block', marginBottom: '15px', fontWeight: '600', color: colors.dark, fontSize: '18px' }}>
+                      🛠️ Job Preferences
+                    </label>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                      gap: '15px' 
+                    }}>
+                      {jobCategories.map(category => (
+                        <label key={category} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          cursor: 'pointer',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          background: form.jobPreferences?.includes(category) 
+                            ? colors.success 
+                            : colors.light,
+                          color: form.jobPreferences?.includes(category) ? colors.white : colors.dark,
+                          border: `2px solid ${form.jobPreferences?.includes(category) ? colors.success : colors.lightGray}`,
+                          transition: 'all 0.3s ease',
+                          fontWeight: '500'
+                        }}>
+                          <input 
+                            type="checkbox" 
+                            checked={form.jobPreferences?.includes(category) || false}
+                            onChange={() => handleJobPreferenceChange(category)}
+                            style={{ marginRight: '10px' }}
+                          />
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label>Availability:</label>
+                  
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                      ⏰ Availability
+                    </label>
                     <input
-                      type="text"
                       name="availability"
-                      value={editForm.availability}
-                      onChange={handleEditChange}
-                      style={{ width: '100%', padding: 8, marginTop: 5 }}
-                      placeholder="e.g., Full-time, Part-time"
+                      value={form.availability || ''}
+                      onChange={handleChange}
+                      placeholder="e.g., Full-time, Part-time, Weekends"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '2px solid #e2e8f0',
+                        fontSize: '16px'
+                      }}
                     />
                   </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Work History:</label>
+                  
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                      📋 Work History
+                    </label>
                     <textarea
                       name="workHistory"
-                      value={editForm.workHistory}
-                      onChange={handleEditChange}
-                      style={{ width: '100%', padding: 8, marginTop: 5, minHeight: 80 }}
+                      value={form.workHistory || ''}
+                      onChange={handleChange}
                       placeholder="Describe your work experience..."
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '2px solid #e2e8f0',
+                        fontSize: '16px',
+                        minHeight: '100px',
+                        resize: 'vertical'
+                      }}
                     />
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
 
-            {user.role === 'employer' && (
-              <div style={{ marginBottom: 30 }}>
-                <h3 style={{ color: '#2d3e50', borderBottom: '2px solid #3498db', paddingBottom: 10 }}>
-                  Edit Employer Information
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Job Types (comma separated):</label>
+              {user.role === 'employer' && (
+                <>
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                      🏷️ Job Types
+                    </label>
                     <input
-                      type="text"
                       name="jobTypes"
-                      value={editForm.jobTypes}
-                      onChange={handleEditChange}
-                      style={{ width: '100%', padding: 8, marginTop: 5 }}
-                      placeholder="e.g., construction, cleaning, delivery"
+                      value={Array.isArray(form.jobTypes) ? form.jobTypes.join(', ') : (form.jobTypes || '')}
+                      onChange={handleChange}
+                      placeholder="e.g., plumbing, electrical, cleaning"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '2px solid #e2e8f0',
+                        fontSize: '16px'
+                      }}
                     />
                   </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <label>Hiring Preferences:</label>
+                  
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
+                      👥 Hiring Preferences
+                    </label>
                     <textarea
                       name="hiringPreferences"
-                      value={editForm.hiringPreferences}
-                      onChange={handleEditChange}
-                      style={{ width: '100%', padding: 8, marginTop: 5, minHeight: 80 }}
+                      value={form.hiringPreferences || ''}
+                      onChange={handleChange}
                       placeholder="Describe your hiring preferences..."
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '2px solid #e2e8f0',
+                        fontSize: '16px',
+                        minHeight: '100px',
+                        resize: 'vertical'
+                      }}
                     />
                   </div>
-                  <div>
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="isCompany"
-                        checked={editForm.isCompany}
-                        onChange={handleEditChange}
-                        style={{ marginRight: 8 }}
+                  
+                  <div style={{ marginBottom: '25px' }}>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      cursor: 'pointer',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      background: form.isCompany ? colors.success : colors.light,
+                      color: form.isCompany ? colors.white : colors.dark,
+                      border: `2px solid ${form.isCompany ? colors.success : colors.lightGray}`,
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        name="isCompany" 
+                        checked={form.isCompany || false} 
+                        onChange={handleChange}
+                        style={{ marginRight: '12px' }}
                       />
-                      Is Company Account?
+                      Is Company?
                     </label>
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
 
-            {/* Edit Action Buttons */}
-            <div style={{ textAlign: 'center', marginTop: 30 }}>
-              {error && <p style={{ color: 'red', marginBottom: 15 }}>{error}</p>}
-              <button 
-                onClick={handleUpdate}
-                disabled={updateLoading}
-                style={{
-                  padding: '10px 20px',
-                  margin: '0 10px',
-                  background: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: updateLoading ? 'not-allowed' : 'pointer',
-                  opacity: updateLoading ? 0.7 : 1
-                }}
-              >
-                {updateLoading ? 'Updating...' : 'Save Changes'}
-              </button>
-              <button 
-                onClick={() => {
-                  setIsEditing(false);
-                  setError('');
-                  // Reset form to original values
-                  setEditForm({
-                    name: user.name,
-                    contact: user.contact,
-                    address: user.address,
-                    dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : '',
-                    sex: user.sex,
-                    jobPreferences: user.jobPreferences ? user.jobPreferences.join(', ') : '',
-                    availability: user.availability || '',
-                    workHistory: user.workHistory || '',
-                    jobTypes: user.jobTypes ? user.jobTypes.join(', ') : '',
-                    hiringPreferences: user.hiringPreferences || '',
-                    isCompany: user.isCompany || false
-                  });
-                }}
-                style={{
-                  padding: '10px 20px',
-                  margin: '0 10px',
-                  background: '#95a5a6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
+              <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  style={{
+                    background: colors.lightGray,
+                    color: colors.gray,
+                    border: 'none',
+                    padding: '12px 30px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '16px'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    background: colors.primary,
+                    color: colors.white,
+                    border: 'none',
+                    padding: '12px 30px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '16px'
+                  }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '25px' }}>
+                <div style={{ 
+                  background: colors.light, 
+                  padding: '20px', 
+                  borderRadius: '8px',
+                  border: '1px solid colors.lightGray'
+                }}>
+                  <h3 style={{ margin: '0 0 10px 0', color: colors.primary, fontSize: '18px' }}>Personal Information</h3>
+                  <p style={{ margin: '5px 0', color: colors.dark }}><strong>Name:</strong> {user.name}</p>
+                  <p style={{ margin: '5px 0', color: colors.dark }}><strong>Contact:</strong> {user.contact}</p>
+                  <p style={{ margin: '5px 0', color: colors.dark }}><strong>Address:</strong> {user.address}</p>
+                  <p style={{ margin: '5px 0', color: colors.dark }}><strong>Date of Birth:</strong> {new Date(user.dob).toLocaleDateString()}</p>
+                  <p style={{ margin: '5px 0', color: colors.dark }}><strong>Gender:</strong> {user.sex}</p>
+                </div>
+
+                {user.role === 'worker' && (
+                  <div style={{ 
+                    background: colors.light, 
+                    padding: '20px', 
+                    borderRadius: '8px',
+                    border: '1px solid colors.lightGray'
+                  }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: colors.primary, fontSize: '18px' }}>Professional Details</h3>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Job Preferences:</strong> {user.jobPreferences?.length > 0 ? user.jobPreferences.join(', ') : 'None selected'}
+                    </p>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Availability:</strong> {user.availability || 'Not specified'}
+                    </p>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Work History:</strong> {user.workHistory || 'Not specified'}
+                    </p>
+                  </div>
+                )}
+
+                {user.role === 'employer' && (
+                  <div style={{ 
+                    background: colors.light, 
+                    padding: '20px', 
+                    borderRadius: '8px',
+                    border: '1px solid colors.lightGray'
+                  }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: colors.primary, fontSize: '18px' }}>Organization Details</h3>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Job Types:</strong> {Array.isArray(user.jobTypes) && user.jobTypes.length > 0 ? user.jobTypes.join(', ') : 'Not specified'}
+                    </p>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Hiring Preferences:</strong> {user.hiringPreferences || 'Not specified'}
+                    </p>
+                    <p style={{ margin: '5px 0', color: colors.dark }}>
+                      <strong>Company:</strong> {user.isCompany ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{
+                    background: colors.primary,
+                    color: colors.white,
+                    border: 'none',
+                    padding: '15px 40px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '16px',
+                    boxShadow: '0 4px 15px rgba(44, 90, 160, 0.2)'
+                  }}
+                >
+                  Edit Profile
+                </button>
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

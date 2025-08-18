@@ -7,6 +7,9 @@ const jobSchema = new mongoose.Schema({
   salaryRange: String,
   address: String,
   description: String,
+  status: { type: String, enum: ['open', 'assigned', 'completed'], default: 'open' },
+  assignedWorker: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  applications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Application' }],
   createdAt: { type: Date, default: Date.now }
 });
 

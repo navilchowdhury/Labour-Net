@@ -45,7 +45,25 @@ exports.login = async (req, res) => {
     
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
     console.log('Login successful for user:', user.name, 'Token generated');
-    res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
+    
+    // Return user data without password
+    const userData = {
+      id: user._id,
+      name: user.name,
+      role: user.role,
+      contact: user.contact,
+      address: user.address,
+      dob: user.dob,
+      sex: user.sex,
+      jobPreferences: user.jobPreferences,
+      availability: user.availability,
+      workHistory: user.workHistory,
+      jobTypes: user.jobTypes,
+      hiringPreferences: user.hiringPreferences,
+      isCompany: user.isCompany
+    };
+    
+    res.json({ token, user: userData });
   } catch (err) {
     console.error('Login error:', err);
     res.status(400).json({ error: err.message });
