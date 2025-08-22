@@ -1,11 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import NotificationPanel from './NotificationPanel';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const userData = localStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    if (token && user?.role === 'worker') {
+      fetchUnreadCount();
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [token, user?.role]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/notifications/unread-count', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUnreadCount(response.data.count);
+    } catch (err) {
+      console.error('Error fetching unread count:', err);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -15,7 +39,8 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={{
+    <>
+      <nav style={{
       background: '#1a202c',
       color: '#fff',
       padding: '1rem 2rem',
@@ -95,6 +120,54 @@ export default function Navbar() {
             }}>
               Profile
             </Link>
+            
+            {/* Notification Bell for Workers */}
+            {user?.role === 'worker' && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowNotifications(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#e2e8f0',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#fff';
+                    e.target.style.background = '#2d3748';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#e2e8f0';
+                    e.target.style.background = 'transparent';
+                  }}
+                >
+                  🔔
+                </button>
+                {unreadCount > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '5px',
+                    right: '10px',
+                    background: '#e74c3c',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
+                )}
+              </div>
+            )}
             <button 
               onClick={handleLogout}
               style={{ 
@@ -162,5 +235,15 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+    
+    {/* Notification Panel */}
+    {showNotifications && (
+      <NotificationPanel
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        token={token}
+      />
+    )}
+  </>
   );
 }

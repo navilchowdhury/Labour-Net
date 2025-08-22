@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema({
   jobTypes: [String],
   hiringPreferences: String,
   isCompany: Boolean,
+    // NID Verification fields
+  nidNumber: { type: String },        // 10, 13, or 17 digits
+  nidName: { type: String },          // Name on the NID card
+  isNidVerified: { type: Boolean, default: false } // Has this user been verified?
 });
 
-module.exports = mongoose.model('User', userSchema);
+//module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);

@@ -9,3 +9,4 @@ router.get('/profile', auth, getProfile);
 router.put('/profile', auth, updateProfile);
 
 module.exports = router;
+

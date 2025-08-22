@@ -9,19 +9,41 @@ export default function Register() {
 
   const handleRegister = async (form) => {
     try {
+      let isNidVerified = false;
+      let nidNumber = form.nidNumber || '';
+
+      if (form.nidNumber && form.nidPhoto) {
+        const nidForm = new FormData();
+        nidForm.append('name', form.name);
+        nidForm.append('nidNumber', form.nidNumber);
+        nidForm.append('nidPhoto', form.nidPhoto);
+        try {
+          const verifyRes = await axios.post('http://localhost:5000/api/nid/verify-nid', nidForm, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          isNidVerified = Boolean(verifyRes.data?.isVerified);
+        } catch (e) {
+          console.warn('NID verification failed, allowing registration to continue');
+        }
+      }
+
       const payload = {
         ...form,
-        // jobPreferences is already an array from the form
+        jobPreferences: form.jobPreferences ? form.jobPreferences.split(',').map(s => s.trim()) : [],
         jobTypes: form.jobTypes ? form.jobTypes.split(',').map(s => s.trim()) : [],
+        nidNumber,
+        isNidVerified
       };
+
       await axios.post('http://localhost:5000/api/auth/register', payload);
       navigate('/login');
     } catch (error) {
       console.error('Registration error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Registration failed';
       setError(errorMessage);
     }
   };
+
 
   return (
     <div style={{ 
@@ -30,7 +52,7 @@ export default function Register() {
       padding: '20px'
     }}>
       <div style={{ 
-        maxWidth: '600px', 
+        maxWidth: '1000px', 
         margin: '0 auto', 
         paddingTop: '40px' 
       }}>

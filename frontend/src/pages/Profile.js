@@ -9,6 +9,9 @@ export default function Profile() {
   const [form, setForm] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [nidNumberInput, setNidNumberInput] = useState('');
+  const [nidPhotoFile, setNidPhotoFile] = useState(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const navigate = useNavigate();
 
   // Professional corporate color scheme
@@ -544,6 +547,88 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+              
+              <div style={{ 
+                marginTop: '20px',
+                textAlign: 'center'
+              }}>
+                <h3 style={{ 
+                  marginBottom: '10px',
+                  color: user.isNidVerified ? colors.success : colors.danger,
+                  fontSize: '1.2rem'
+                }}>
+                  {user.isNidVerified ? 'Verified' : 'Unverified'}
+                </h3>
+                {!user.isNidVerified && (
+                  <div style={{ 
+                    backgroundColor: colors.warning,
+                    padding: '15px',
+                    borderRadius: '8px',
+                    color: colors.dark
+                  }}>
+                    <p>
+                      <strong>Verification Failed:</strong> Your NID information does not match. 
+                      Please ensure the name and number on your NID match your profile exactly.
+                    </p>
+                    <div style={{ marginTop: '15px', textAlign: 'left' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>NID Number</label>
+                      <input
+                        type="text"
+                        value={nidNumberInput}
+                        onChange={(e) => setNidNumberInput(e.target.value)}
+                        placeholder="Enter NID Number"
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                      />
+                      <label style={{ display: 'block', margin: '12px 0 8px', fontWeight: '600' }}>Upload NID Photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setNidPhotoFile(e.target.files?.[0] || null)}
+                        style={{ width: '100%' }}
+                      />
+                      <button
+                        disabled={verifyLoading}
+                        onClick={async () => {
+                          try {
+                            setVerifyLoading(true);
+                            const token = localStorage.getItem('token');
+                            const formData = new FormData();
+                            formData.append('name', user.name);
+                            formData.append('nidNumber', nidNumberInput);
+                            if (nidPhotoFile) formData.append('nidPhoto', nidPhotoFile);
+                            const res = await axios.post('http://localhost:5000/api/nid/verify-and-update', formData, {
+                              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                            });
+                            if (res.data?.isVerified) {
+                              setSuccess('NID verified successfully!');
+                              fetchProfile();
+                            } else {
+                              setError('NID verification failed. Please try again.');
+                            }
+                          } catch (e) {
+                            setError('Verification request failed');
+                          } finally {
+                            setVerifyLoading(false);
+                            setTimeout(() => { setError(''); setSuccess(''); }, 3000);
+                          }
+                        }}
+                        style={{
+                          marginTop: '12px',
+                          background: colors.success,
+                          color: colors.white,
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        {verifyLoading ? 'Verifying...' : 'Verify Now'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div style={{ textAlign: 'center' }}>
                 <button
@@ -569,4 +654,4 @@ export default function Profile() {
       </div>
     </div>
   );
-} 
+}
