@@ -2,6 +2,10 @@ const Job = require('../models/Job');
 const User = require('../models/user');
 const Notification = require('../models/Notification');
 
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.createJob = async (req, res) => {
   try {
     if (req.user.role !== 'employer') return res.status(403).json({ error: 'Only employers can post jobs' });
@@ -10,9 +14,11 @@ exports.createJob = async (req, res) => {
     await job.save();
     
     // Find workers whose job preferences match this job category
+    const rx = new RegExp(`^${escapeRegExp(job.category)}$`, 'i');
     const matchingWorkers = await User.find({
       role: 'worker',
-      $elemMatch: { $regex: new RegExp(`^${job.category}$`, 'i') }
+      jobPreferences: { $in: [rx] }
+      //$elemMatch: { $regex: new RegExp(`^${job.category}$`, 'i') }
     });
     
     // Create notifications for matching workers

@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
   sex: { type: String, required: true },
   password: { type: String, required: true },
   // Worker-specific
-  jobPreferences: [String],
+  jobPreferences: [{ type: String }],
   availability: String,
   workHistory: String,
   // Employer-specific

@@ -5,8 +5,11 @@ const Job = require('../models/Job');
 exports.getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ recipient: req.user.id })
-      .populate('job', 'category workingHours salaryRange address description employer')
-      .populate('job.employer', 'name contact')
+      .populate({
+        path: 'job',
+        select: 'category workingHours salaryRange address description employer',
+        populate: { path: 'employer', select: 'name contact' }
+      })
       .sort({ createdAt: -1 })
       .limit(50);
     
