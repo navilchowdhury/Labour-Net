@@ -205,7 +205,7 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
                     <button
                       onClick={async () => {
                         try {
-                          const response = await axios.post('http://localhost:5000/api/applications', {
+                          const response = await axios.post('http://localhost:5000/api/applications/', {
                             job: notification.job._id,
                             coverLetter: `I'm interested in this ${notification.job.category} position. I have relevant experience and am available to start immediately.`
                           }, {
@@ -216,6 +216,8 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
                             alert('Application submitted successfully!');
                             // Mark notification as read
                             markAsRead(notification._id);
+                            // Add a new line here to refresh the notifications
+                            fetchNotifications();
                           }
                         } catch (err) {
                           console.error('Application error:', err);

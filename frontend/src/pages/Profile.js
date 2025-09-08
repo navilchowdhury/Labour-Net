@@ -544,6 +544,25 @@ export default function Profile() {
                     <p style={{ margin: '5px 0', color: colors.dark }}>
                       <strong>Company:</strong> {user.isCompany ? 'Yes' : 'No'}
                     </p>
+                    <p style={{ 
+                      margin: '5px 0', 
+                      color: user.reportedCount > 0 ? colors.error : colors.dark,
+                      fontWeight: user.reportedCount > 0 ? 'bold' : 'normal'
+                    }}>
+                      <strong>Reports Received:</strong> {user.reportedCount || 0} time{(user.reportedCount || 0) > 1 ? 's' : ''}
+                      {user.reportedCount > 0 && (
+                        <span style={{ 
+                          marginLeft: '10px', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px', 
+                          background: colors.error, 
+                          color: 'white', 
+                          fontSize: '12px' 
+                        }}>
+                          ⚠️ Reported
+                        </span>
+                      )}
+                    </p>
                   </div>
                 )}
               </div>

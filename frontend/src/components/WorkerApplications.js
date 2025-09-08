@@ -1,386 +1,223 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 export default function WorkerApplications() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-
-  // Modern color scheme
-  const colors = {
-    primary: '#667eea',
-    secondary: '#764ba2',
-    success: '#48bb78',
-    warning: '#ed8936',
-    danger: '#f56565',
-    info: '#4299e1',
-    light: '#f7fafc',
-    dark: '#2d3748',
-    gradient1: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    gradient2: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    gradient3: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    gradient4: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    gradient5: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
-  };
+  const token = localStorage.getItem('token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
     fetchApplications();
-  }, [navigate]);
+    // eslint-disable-next-line
+  }, []);
 
   const fetchApplications = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/applications/worker', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setApplications(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-      setError('Failed to load applications');
+      setLoading(true);
+      setError('');
+      const res = await axios.get('http://localhost:5000/api/applications/worker', { headers });
+      setApplications(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch applications', err);
+      setError('Failed to load applications. Please try again.');
+      setApplications([]);
+    } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return colors.gradient5;
-      case 'accepted':
-        return colors.gradient3;
-      case 'rejected':
-        return colors.gradient2;
-      case 'assigned':
-        return colors.gradient4;
-      default:
-        return colors.gradient1;
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending':
-        return '⏳';
-      case 'accepted':
-        return '✓';
-      case 'rejected':
-        return '✗';
-      case 'assigned':
-        return '🎯';
-      default:
-        return '❓';
+  // [ADDED] Worker reports employer
+  const handleReportEmployer = async (jobId) => {
+    try {
+      await axios.post(
+        'http://localhost:5000/api/applications/report',
+        { jobId, reason: 'Unfair treatment' },
+        { headers }
+      );
+      alert('Employer reported!');
+      fetchApplications();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to report employer');
     }
   };
 
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⏳</div>
-          <h2 style={{ color: colors.dark }}>Loading your applications...</h2>
-        </div>
+      <div style={{ maxWidth: 800, margin: 'auto', padding: 20, textAlign: 'center' }}>
+        <h2>My Applications</h2>
+        <p>Loading your applications...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>❌</div>
-          <h2 style={{ color: colors.dark }}>{error}</h2>
-          <button 
-            onClick={fetchApplications}
-            style={{
-              background: colors.gradient1,
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '15px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              marginTop: '20px'
-            }}
-          >
-            🔄 Try Again
-          </button>
-        </div>
+      <div style={{ maxWidth: 800, margin: 'auto', padding: 20, textAlign: 'center' }}>
+        <h2>My Applications</h2>
+        <p style={{ color: '#e53e3e' }}>{error}</p>
+        <button 
+          onClick={fetchApplications}
+          style={{
+            background: '#3182ce',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ 
-          background: colors.gradient1, 
-          padding: '40px', 
-          borderRadius: '25px', 
-          marginBottom: '30px',
-          color: 'white',
-          textAlign: 'center',
-          boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)'
-        }}>
-          <div style={{ fontSize: '4rem', marginBottom: '20px' }}>📋</div>
-          <h1 style={{ 
-            margin: '0 0 10px 0', 
-            fontSize: '2.5rem', 
-            fontWeight: 'bold',
-            textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}>
-            My Applications
-          </h1>
-          <p style={{ 
-            margin: 0, 
-            fontSize: '1.2rem', 
-            opacity: 0.9
-          }}>
-            Track the status of all your job applications
-          </p>
-        </div>
+    <div style={{ maxWidth: 800, margin: 'auto', padding: 20 }}>
+      <h2 style={{ color: '#2d3e50', marginBottom: '20px' }}>My Applications</h2>
 
-        {/* Applications List */}
-        {applications.length === 0 ? (
-          <div style={{ 
-            background: 'white', 
-            padding: '60px', 
-            borderRadius: '20px',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e2e8f0',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '4rem', marginBottom: '20px', opacity: 0.5 }}>📝</div>
-            <h3 style={{ 
-              margin: '0 0 15px 0', 
-              color: colors.dark,
-              fontSize: '1.5rem'
-            }}>
-              No Applications Yet
-            </h3>
-            <p style={{ 
-              color: '#64748b', 
-              margin: '0 0 25px 0',
-              fontSize: '16px'
-            }}>
-              You haven't applied for any jobs yet. Start browsing available jobs to find opportunities that match your skills!
-            </p>
-            <button 
-              onClick={() => navigate('/jobs')}
-              style={{
-                background: colors.gradient4,
-                color: 'white',
-                border: 'none',
-                padding: '12px 30px',
-                borderRadius: '20px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                boxShadow: '0 4px 15px rgba(67, 233, 123, 0.3)'
+      {applications.length === 0 ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px', 
+          background: '#f8f9fa', 
+          borderRadius: '8px',
+          border: '2px dashed #dee2e6'
+        }}>
+          <p style={{ color: '#6c757d', fontSize: '18px' }}>No applications found.</p>
+          <p style={{ color: '#6c757d' }}>Apply for jobs to see them here!</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '20px' }}>
+          {applications.map((app) => (
+            <div 
+              key={app._id} 
+              style={{ 
+                border: '1px solid #e9ecef', 
+                borderRadius: '12px', 
+                padding: '20px',
+                background: 'white',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                transition: 'transform 0.2s',
               }}
             >
-              🔍 Browse Jobs
-            </button>
-          </div>
-        ) : (
-          <div style={{ 
-            background: 'white', 
-            padding: '30px', 
-            borderRadius: '20px',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '25px'
-            }}>
-              <h2 style={{ 
-                margin: 0, 
-                color: colors.dark,
-                fontSize: '1.8rem'
-              }}>
-                📊 Application Summary
-              </h2>
-              <div style={{ 
-                background: colors.gradient4, 
-                color: 'white', 
-                padding: '8px 16px', 
-                borderRadius: '20px',
-                fontWeight: 'bold'
-              }}>
-                {applications.length} Application{applications.length !== 1 ? 's' : ''}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0, color: '#2d3e50', fontSize: '20px' }}>
+                  {app.job?.category || 'Unknown'} Position
+                </h3>
+                <span 
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    background: app.status === 'assigned' ? '#e3f2fd' : 
+                               app.status === 'completed' ? '#e8f5e8' :
+                               app.status === 'rejected' ? '#ffebee' : '#f3e5f5',
+                    color: app.status === 'assigned' ? '#1976d2' : 
+                           app.status === 'completed' ? '#2e7d32' :
+                           app.status === 'rejected' ? '#c62828' : '#7b1fa2'
+                  }}
+                >
+                  {app.status}
+                </span>
               </div>
-            </div>
 
-            {applications.map((application, index) => (
-              <div key={application._id} style={{ 
-                background: '#f8fafc', 
-                padding: '25px', 
-                borderRadius: '15px',
-                marginBottom: '20px',
-                border: '1px solid #e2e8f0',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}>
+              <div style={{ marginBottom: '15px' }}>
+                <p style={{ margin: '5px 0', color: '#495057' }}>
+                  <strong>Employer:</strong> {app.job?.employer?.name || 'Unknown'}
+                </p>
+                <p style={{ margin: '5px 0', color: '#495057' }}>
+                  <strong>Contact:</strong> {app.job?.employer?.contact || 'Not provided'}
+                </p>
+                <p style={{ margin: '5px 0', color: '#495057' }}>
+                  <strong>Salary:</strong> {app.job?.salary || app.job?.salaryRange || 'Not specified'}
+                </p>
+                <p style={{ margin: '5px 0', color: '#495057' }}>
+                  <strong>Location:</strong> {app.job?.location || app.job?.address || 'Not specified'}
+                </p>
+                <p style={{ margin: '5px 0', color: '#495057' }}>
+                  <strong>Applied:</strong> {new Date(app.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+
+              {app.job?.description && (
                 <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'flex-start',
-                  marginBottom: '20px'
+                  background: '#f8f9fa', 
+                  padding: '12px', 
+                  borderRadius: '6px', 
+                  marginBottom: '15px',
+                  borderLeft: '4px solid #007bff'
                 }}>
-                  <div>
-                    <h3 style={{ 
-                      margin: '0 0 10px 0', 
-                      color: colors.dark,
-                      fontSize: '1.3rem'
-                    }}>
-                      🏢 {application.job?.title || 'Job Title'}
-                    </h3>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b',
-                      fontSize: '16px'
-                    }}>
-                      <strong>Category:</strong> {application.job?.category || 'N/A'}
-                    </p>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b',
-                      fontSize: '16px'
-                    }}>
-                      <strong>Salary:</strong> ${application.job?.salary || 'N/A'}
-                    </p>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b',
-                      fontSize: '16px'
-                    }}>
-                      <strong>Location:</strong> {application.job?.location || 'N/A'}
-                    </p>
-                  </div>
-                  
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ 
-                      background: getStatusColor(application.status), 
-                      color: 'white', 
-                      padding: '8px 16px', 
-                      borderRadius: '20px',
-                      fontWeight: 'bold',
-                      marginBottom: '10px',
-                      display: 'inline-block'
-                    }}>
-                      {getStatusIcon(application.status)} {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                    </div>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b',
-                      fontSize: '14px'
-                    }}>
-                      Applied: {new Date(application.appliedAt).toLocaleDateString()}
-                    </p>
-                    {application.assignedAt && (
-                      <p style={{ 
-                        margin: '5px 0', 
-                        color: '#64748b',
-                        fontSize: '14px'
-                      }}>
-                        Assigned: {new Date(application.assignedAt).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
+                  <p style={{ margin: 0, color: '#495057', fontStyle: 'italic' }}>
+                    "{app.job.description}"
+                  </p>
                 </div>
+              )}
 
-                {application.message && (
-                  <div style={{ 
-                    background: 'white', 
-                    padding: '15px', 
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    marginTop: '15px'
-                  }}>
-                    <p style={{ 
-                      margin: '0 0 8px 0', 
-                      color: colors.dark,
-                      fontWeight: '600'
-                    }}>
-                      💬 Your Message:
-                    </p>
-                    <p style={{ 
-                      margin: 0, 
-                      color: '#64748b',
-                      fontStyle: 'italic'
-                    }}>
-                      "{application.message}"
-                    </p>
-                  </div>
-                )}
+              {/* Report Employer button if assigned */}
+              {app.status === 'assigned' && (
+                <button 
+                  onClick={() => handleReportEmployer(app.job._id)}
+                  style={{
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '15px'
+                  }}
+                >
+                  Report Employer
+                </button>
+              )}
 
-                {application.job?.employer && (
-                  <div style={{ 
-                    background: 'white', 
-                    padding: '15px', 
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    marginTop: '15px'
-                  }}>
-                    <p style={{ 
-                      margin: '0 0 8px 0', 
-                      color: colors.dark,
-                      fontWeight: '600'
-                    }}>
-                      👤 Employer Contact:
-                    </p>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b'
-                    }}>
-                      <strong>Name:</strong> {application.job.employer.name}
-                    </p>
-                    <p style={{ 
-                      margin: '5px 0', 
-                      color: '#64748b'
-                    }}>
-                      <strong>Contact:</strong> {application.job.employer.contact}
-                    </p>
+              {/* Show review from employer if exists */}
+              {app.review && (
+                <div style={{ 
+                  marginTop: '15px',
+                  padding: '15px',
+                  background: '#fff3cd',
+                  borderRadius: '8px',
+                  border: '1px solid #ffeaa7'
+                }}>
+                  <p style={{ margin: '0 0 10px 0', fontWeight: '600', color: '#856404' }}>
+                    Review from Employer:
+                  </p>
+                  <div style={{ marginBottom: '8px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span 
+                        key={star} 
+                        style={{ 
+                          color: app.review.rating >= star ? '#ffc107' : '#dee2e6', 
+                          fontSize: '18px',
+                          marginRight: '2px'
+                        }}
+                      >
+                        ★
+                      </span>
+                    ))}
+                    <span style={{ marginLeft: '8px', color: '#856404', fontWeight: '600' }}>
+                      {app.review.rating}/5
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  {app.review.comment && (
+                    <p style={{ margin: 0, color: '#856404', fontStyle: 'italic' }}>
+                      "{app.review.comment}"
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-} 
+}

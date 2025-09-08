@@ -1,253 +1,416 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 const User = require('../models/user');
+const Notification = require('../models/Notification');
+const Report = require('../models/Report');   // [ADDED]
+const Review = require('../models/Review');   // [ADDED]
 
-// Apply for a job
+// Worker applies for a job
 exports.applyForJob = async (req, res) => {
   try {
-    const { jobId, message } = req.body;
-    const workerId = req.user.id;
-
-    console.log('Applying for job:', { jobId, workerId, message });
-
-    // Check if user is a worker
     if (req.user.role !== 'worker') {
-      console.log('User is not a worker:', req.user.role);
-      return res.status(403).json({ message: 'Only workers can apply for jobs' });
+      return res.status(403).json({ error: 'Only workers can apply' });
     }
 
-    // Check if job exists and is open
-    const job = await Job.findById(jobId);
+    const { job: jobId, coverLetter, jobId: altJobId } = req.body;
+    const actualJobId = jobId || altJobId;
+    console.log('Application request:', { jobId, altJobId, actualJobId, coverLetter, userId: req.user.id });
+    
+    const job = await Job.findById(actualJobId);
     if (!job) {
-      console.log('Job not found:', jobId);
-      return res.status(404).json({ message: 'Job not found' });
-    }
-    if (job.status !== 'open') {
-      console.log('Job is not open:', job.status);
-      return res.status(400).json({ message: 'Job is not open for applications' });
-    }
-
-    console.log('Job found:', job.category, 'Employer:', job.employer);
-
-    // Check if worker has already applied
-    const existingApplication = await Application.findOne({ job: jobId, worker: workerId });
-    if (existingApplication) {
-      console.log('Worker already applied for this job');
-      return res.status(400).json({ message: 'You have already applied for this job' });
-    }
-
-    // Check if worker's expertise matches job category
-    const worker = await User.findById(workerId);
-    console.log('=== BACKEND EXPERTISE MATCHING DEBUG ===');
-    console.log('Worker job preferences:', worker.jobPreferences);
-    console.log('Worker job preferences type:', typeof worker.jobPreferences);
-    console.log('Worker job preferences length:', worker.jobPreferences?.length);
-    console.log('Job category:', job.category);
-    console.log('Job category type:', typeof job.category);
-    
-    if (worker.jobPreferences && worker.jobPreferences.length > 0) {
-      worker.jobPreferences.forEach((pref, index) => {
-        console.log(`Preference ${index}:`, pref, 'Type:', typeof pref);
-        console.log(`Comparing: "${pref.toLowerCase()}" === "${job.category.toLowerCase()}"`);
-        console.log(`Match result:`, pref.toLowerCase() === job.category.toLowerCase());
-      });
+      console.log('Job not found:', actualJobId);
+      return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Check if at least one expertise matches the job category (robust matching)
-    const hasMatchingExpertise = (() => {
-      // Safety checks
-      if (!worker.jobPreferences) {
-        console.log('No job preferences found');
-        return false;
-      }
-      
-      if (!Array.isArray(worker.jobPreferences)) {
-        console.log('Job preferences is not an array:', worker.jobPreferences);
-        return false;
-      }
-      
-      if (worker.jobPreferences.length === 0) {
-        console.log('Job preferences array is empty');
-        return false;
-      }
-      
-      // Try exact match first
-      const exactMatch = worker.jobPreferences.some(pref => 
-        pref === job.category
-      );
-      if (exactMatch) {
-        console.log('Exact match found');
-        return true;
-      }
-      
-      // Try case-insensitive match
-      const caseInsensitiveMatch = worker.jobPreferences.some(pref => 
-        pref.toLowerCase() === job.category.toLowerCase()
-      );
-      if (caseInsensitiveMatch) {
-        console.log('Case-insensitive match found');
-        return true;
-      }
-      
-      // Try partial match (in case there are extra spaces or formatting)
-      const partialMatch = worker.jobPreferences.some(pref => 
-        pref.toLowerCase().trim() === job.category.toLowerCase().trim()
-      );
-      if (partialMatch) {
-        console.log('Partial match found after trimming');
-        return true;
-      }
-      
-      console.log('No matches found');
-      return false;
-    })();
-    
-    console.log('Final hasMatchingExpertise result:', hasMatchingExpertise);
-    console.log('=== END BACKEND DEBUG ===');
-    
-    if (!hasMatchingExpertise) {
-      console.log('No expertise matches found');
-      return res.status(400).json({ message: 'Your expertise does not match this job category' });
+    console.log('Found job:', job);
+
+    const existing = await Application.findOne({ job: actualJobId, worker: req.user.id });
+    if (existing) {
+      return res.status(400).json({ error: 'Already applied for this job' });
     }
 
-    // Create application
     const application = new Application({
-      job: jobId,
-      worker: workerId,
+      job: actualJobId,
+      worker: req.user.id,
       employer: job.employer,
-      message: message || ''
+      message: coverLetter,
+      status: 'pending'
     });
-
-    console.log('Creating application:', application);
-
+    
+    console.log('Application object created:', application);
     await application.save();
     console.log('Application saved successfully');
 
-    // Add application to job
     job.applications.push(application._id);
     await job.save();
-    console.log('Application added to job');
 
-    res.status(201).json({ message: 'Application submitted successfully', application });
-  } catch (error) {
-    console.error('Apply for job error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(201).json(application);
+  } catch (err) {
+    console.error('Apply error:', err);
+    res.status(500).json({ error: 'Failed to apply' });
   }
 };
 
-// Get applications for a specific job (employer only)
+// Employer views applications for a job
 exports.getJobApplications = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const employerId = req.user.id;
-
-    console.log('Getting applications for job:', jobId, 'by employer:', employerId);
-
-    // Check if user is an employer
-    if (req.user.role !== 'employer') {
-      console.log('User is not an employer:', req.user.role);
-      return res.status(403).json({ message: 'Only employers can view job applications' });
-    }
-
-    // Check if job exists and belongs to this employer
+    console.log('Getting applications for job:', jobId);
+    console.log('Employer user:', req.user);
+    
+    const Review = require('../models/Review');
+    
     const job = await Job.findById(jobId);
     if (!job) {
       console.log('Job not found:', jobId);
-      return res.status(404).json({ message: 'Job not found' });
-    }
-    if (job.employer.toString() !== employerId) {
-      console.log('Job does not belong to employer. Job employer:', job.employer, 'Requesting employer:', employerId);
-      return res.status(403).json({ message: 'You can only view applications for your own jobs' });
+      return res.status(404).json({ error: 'Job not found' });
     }
 
-    console.log('Job belongs to employer, fetching applications...');
+    console.log('Job found:', job);
+    console.log('Job employer:', job.employer);
+    console.log('Request user ID:', req.user.id);
 
-    // Get applications with worker details
+    // Check if user is the employer of this job
+    if (job.employer.toString() !== req.user.id) {
+      console.log('Unauthorized access to job applications');
+      return res.status(403).json({ error: 'Unauthorized - not job owner' });
+    }
+
+    // Get all applications for this job
     const applications = await Application.find({ job: jobId })
-      .populate('worker', 'name contact jobPreferences availability workHistory')
-      .sort({ appliedAt: -1 });
+      .populate('worker', 'name contact jobPreferences availability address isNidVerified')
+      .sort({ createdAt: -1 });
 
-    console.log('Found applications:', applications.length);
+    console.log(`Found ${applications.length} applications for job ${jobId}`);
 
-    res.json(applications);
-  } catch (error) {
-    console.error('Get job applications error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    // Enhance applications with worker job history and reviews
+    const enhancedApplications = await Promise.all(
+      applications.map(async (application) => {
+        // Get worker's job history
+        const assignedJobs = await Application.find({
+          worker: application.worker._id,
+          status: { $in: ['assigned', 'completed'] }
+        })
+        .populate({
+          path: 'job',
+          populate: {
+            path: 'employer',
+            select: 'name isCompany'
+          }
+        })
+        .sort({ createdAt: -1 })
+        .limit(10);
 
-// Assign worker to job
-exports.assignWorker = async (req, res) => {
-  try {
-    const { jobId, workerId } = req.body;
-    const employerId = req.user.id;
+        // Get worker's reviews
+        const reviews = await Review.find({ worker: application.worker._id })
+          .populate('employer', 'name isCompany')
+          .populate('job', 'category title')
+          .sort({ createdAt: -1 });
 
-    // Check if user is an employer
-    if (req.user.role !== 'employer') {
-      return res.status(403).json({ message: 'Only employers can assign workers' });
-    }
+        // Calculate average rating
+        const averageRating = reviews.length > 0 
+          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+          : 0;
 
-    // Check if job exists and belongs to this employer
-    const job = await Job.findById(jobId);
-    if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
-    }
-    if (job.employer.toString() !== employerId) {
-      return res.status(403).json({ message: 'You can only assign workers to your own jobs' });
-    }
+        // Format job history with reviews
+        const jobHistory = await Promise.all(assignedJobs.map(async (app) => {
+          const jobReview = reviews.find(review => 
+            review.job._id.toString() === app.job._id.toString()
+          );
 
-    // Check if job is open
-    if (job.status !== 'open') {
-      return res.status(400).json({ message: 'Job is not open for assignment' });
-    }
+          return {
+            jobId: app.job._id,
+            jobTitle: app.job.title || `${app.job.category} Position`,
+            jobCategory: app.job.category,
+            employerName: app.job.employer.name,
+            isCompany: app.job.employer.isCompany,
+            status: app.status,
+            assignedDate: app.updatedAt,
+            salary: app.job.salary || app.job.salaryRange,
+            location: app.job.location || app.job.address,
+            review: jobReview ? {
+              rating: jobReview.rating,
+              comment: jobReview.comment,
+              reviewDate: jobReview.createdAt
+            } : null
+          };
+        }));
 
-    // Check if worker has applied for this job
-    const application = await Application.findOne({ job: jobId, worker: workerId });
-    if (!application) {
-      return res.status(400).json({ message: 'Worker has not applied for this job' });
-    }
-
-    // Update job status and assign worker
-    job.status = 'assigned';
-    job.assignedWorker = workerId;
-    await job.save();
-
-    // Update application status
-    application.status = 'assigned';
-    application.assignedAt = new Date();
-    await application.save();
-
-    // Update all other applications to rejected
-    await Application.updateMany(
-      { job: jobId, _id: { $ne: application._id } },
-      { status: 'rejected' }
+        return {
+          ...application.toObject(),
+          worker: {
+            ...application.worker.toObject(),
+            jobHistory: jobHistory,
+            reviews: {
+              total: reviews.length,
+              averageRating: Math.round(averageRating * 10) / 10,
+              recentReviews: reviews.slice(0, 3)
+            }
+          }
+        };
+      })
     );
 
-    res.json({ message: 'Worker assigned successfully', job });
-  } catch (error) {
-    console.error('Assign worker error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.json(enhancedApplications);
+  } catch (err) {
+    console.error('Get job applications error:', err);
+    res.status(500).json({ error: 'Failed to fetch applications' });
   }
 };
 
-// Get worker's applications
-exports.getWorkerApplications = async (req, res) => {
+// Employer assigns a worker
+exports.assignWorker = async (req, res) => {
   try {
-    const workerId = req.user.id;
-
-    // Check if user is a worker
-    if (req.user.role !== 'worker') {
-      return res.status(403).json({ message: 'Only workers can view their applications' });
+    if (req.user.role !== 'employer') {
+      return res.status(403).json({ error: 'Only employers can assign' });
     }
 
-    const applications = await Application.find({ worker: workerId })
-      .populate('job', 'category workingHours salaryRange address description status')
-      .populate('employer', 'name contact')
-      .sort({ appliedAt: -1 });
+    const { jobId, workerId } = req.body;
+    
+    console.log('Assignment request:', { jobId, workerId, employerId: req.user.id });
+    
+    // Verify job exists and belongs to employer
+    const job = await Job.findById(jobId);
+    if (!job) {
+      console.log('Job not found:', { jobId });
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    if (job.employer.toString() !== req.user.id) {
+      console.log('Job ownership mismatch:', { jobEmployer: job.employer, userId: req.user.id });
+      return res.status(403).json({ error: 'Unauthorized - not job owner' });
+    }
 
-    res.json(applications);
-  } catch (error) {
-    console.error('Get worker applications error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.log('Job found:', job);
+
+    // Verify worker exists and has applied
+    const User = require('../models/user');
+    const worker = await User.findById(workerId);
+    if (!worker || worker.role !== 'worker') {
+      console.log('Worker not found or invalid role:', { workerId, worker });
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+
+    console.log('Worker found:', worker);
+
+    const application = await Application.findOne({ job: jobId, worker: workerId });
+    if (!application) {
+      console.log('Application not found:', { jobId, workerId });
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    console.log('Application found:', application);
+
+    // Update job
+    job.assignedWorker = workerId;
+    job.status = 'assigned';
+    await job.save();
+
+    // Update applications - reject others, assign selected
+    await Application.updateMany(
+      { job: jobId, worker: { $ne: workerId } },
+      { $set: { status: 'rejected' } }
+    );
+
+    await Application.findOneAndUpdate(
+      { job: jobId, worker: workerId },
+      { $set: { status: 'assigned' } }
+    );
+
+    // Clean up job match notifications
+    const Notification = require('../models/Notification');
+    await Notification.deleteMany({ 
+      job: jobId, 
+      type: 'job_match' 
+    });
+
+    console.log(`Worker ${workerId} assigned to job ${jobId}`);
+
+    res.json({ message: 'Worker assigned successfully', job });
+  } catch (err) {
+    console.error('Assign worker error:', err);
+    res.status(500).json({ error: 'Failed to assign worker', details: err.message });
   }
-}; 
+};
+
+// Worker views their applications
+exports.getWorkerApplications = async (req, res) => {
+  try {
+    const apps = await Application.find({ worker: req.user.id })
+      .populate({
+        path: 'job',
+        populate: {
+          path: 'employer',
+          select: 'name contact isCompany'
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    // Get reviews for completed applications
+    const Review = require('../models/Review');
+    const appsWithReviews = await Promise.all(
+      apps.map(async (app) => {
+        if (app.status === 'completed' && app.job) {
+          const review = await Review.findOne({
+            worker: req.user.id,
+            job: app.job._id
+          }).populate('employer', 'name isCompany');
+          
+          return {
+            ...app.toObject(),
+            review: review
+          };
+        }
+        return app.toObject();
+      })
+    );
+
+    res.json(appsWithReviews);
+  } catch (err) {
+    console.error('Get worker applications error:', err);
+    res.status(500).json({ error: 'Failed to fetch worker applications' });
+  }
+};
+
+// Worker views their assigned jobs (for reporting purposes)
+exports.getWorkerAssignedJobs = async (req, res) => {
+  try {
+    if (req.user.role !== 'worker') {
+      return res.status(403).json({ error: 'Only workers can view assigned jobs' });
+    }
+
+    const assignedJobs = await Job.find({ 
+      assignedWorker: req.user.id,
+      status: 'assigned'
+    })
+      .populate('employer', 'name contact reportedCount')
+      .sort({ createdAt: -1 });
+
+    res.json(assignedJobs);
+  } catch (err) {
+    console.error('Get assigned jobs error:', err);
+    res.status(500).json({ error: 'Failed to fetch assigned jobs' });
+  }
+};
+
+/* =========================
+   NEW FEATURES
+   ========================= */
+
+// Worker reports employer (only if assigned)
+exports.reportEmployer = async (req, res) => {
+  try {
+    console.log('Report employer request:', { body: req.body, user: req.user });
+    
+    if (req.user.role !== 'worker') {
+      return res.status(403).json({ error: 'Only workers can report employers' });
+    }
+
+    const { jobId, reason } = req.body;
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Reason for reporting is required' });
+    }
+
+    const job = await Job.findById(jobId).populate('employer');
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    console.log('Job found:', { 
+      jobId: job._id, 
+      assignedWorker: job.assignedWorker, 
+      userId: req.user.id,
+      assignedWorkerType: typeof job.assignedWorker,
+      userIdType: typeof req.user.id,
+      stringComparison: String(job.assignedWorker) === String(req.user.id)
+    });
+
+    if (String(job.assignedWorker) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'You are not assigned to this job' });
+    }
+
+    // Save report
+    const report = new Report({
+      worker: req.user.id,
+      employer: job.employer._id,
+      job: job._id,
+      reason
+    });
+    await report.save();
+
+    // Increment employer's reportedCount
+    const employer = await User.findById(job.employer._id);
+    if (employer) {
+      employer.reportedCount = (employer.reportedCount || 0) + 1;
+      await employer.save();
+    }
+
+    res.json({ message: 'Employer reported successfully', report });
+  } catch (err) {
+    console.error('Report employer error:', err);
+    res.status(500).json({ error: 'Failed to report employer' });
+  }
+};
+
+// Employer reviews worker (1–5 stars)
+exports.reviewWorker = async (req, res) => {
+  try {
+    if (req.user.role !== 'employer') {
+      return res.status(403).json({ error: 'Only employers can review workers' });
+    }
+
+    const { jobId, workerId, rating, comment } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    if (String(job.employer) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'You are not the employer of this job' });
+    }
+    if (String(job.assignedWorker) !== String(workerId)) {
+      return res.status(403).json({ error: 'This worker was not assigned to this job' });
+    }
+
+    const review = new Review({
+      employer: req.user.id,
+      worker: workerId,
+      job: jobId,
+      rating,
+      comment
+    });
+    await review.save();
+
+    res.json({ message: 'Review submitted successfully', review });
+  } catch (err) {
+    console.error('Review worker error:', err);
+    res.status(500).json({ error: 'Failed to submit review' });
+  }
+};
+
+// Get worker reviews for a specific worker
+exports.getWorkerReviews = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    const reviews = await Review.find({ worker: workerId })
+      .populate('employer', 'name')
+      .populate('job', 'category')
+      .sort({ createdAt: -1 });
+    
+    // Calculate average rating
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : 0;
+    
+    res.json({ 
+      reviews, 
+      averageRating: parseFloat(averageRating),
+      totalReviews: reviews.length 
+    });
+  } catch (err) {
+    console.error('Get worker reviews error:', err);
+    res.status(500).json({ error: 'Failed to fetch worker reviews' });
+  }
+};

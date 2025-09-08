@@ -6,7 +6,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Jobs from './pages/Jobs';
 import Profile from './pages/Profile';
-import WorkerApplications from './components/WorkerApplications';
+import WorkerApplicationsView from './components/WorkerApplicationsView';
+import EmployerJobsView from './components/EmployerJobsView';
+import ShiftScheduling from './components/ShiftScheduling';
 import './App.css';
 
 function App() {
@@ -20,7 +22,9 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/applications" element={<WorkerApplications />} />
+          <Route path="/applications" element={<WorkerApplicationsView />} />
+          <Route path="/my-jobs" element={<EmployerJobsView />} />
+          <Route path="/schedule" element={<ShiftScheduling />} />
         </Routes>
       </div>
     </Router>

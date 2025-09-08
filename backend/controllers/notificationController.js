@@ -7,13 +7,18 @@ exports.getNotifications = async (req, res) => {
     const notifications = await Notification.find({ recipient: req.user.id })
       .populate({
         path: 'job',
-        select: 'category workingHours salaryRange address description employer',
+        select: 'category workingHours salaryRange address description employer status',
         populate: { path: 'employer', select: 'name contact' }
       })
       .sort({ createdAt: -1 })
       .limit(50);
     
-    res.json(notifications);
+    // Filter out notifications for assigned jobs
+    const filteredNotifications = notifications.filter(notification => 
+      notification.job && notification.job.status !== 'assigned'
+    );
+    
+    res.json(filteredNotifications);
   } catch (err) {
     console.error('Get notifications error:', err);
     res.status(500).json({ error: 'Failed to fetch notifications' });

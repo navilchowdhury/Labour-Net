@@ -1,804 +1,808 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ApplicationModal from './ApplicationModal';
+import JobFilters from './JobFilters';
+import '../styles/professional.css';
 
 export default function JobList() {
   const [jobs, setJobs] = useState([]);
-  const [category, setCategory] = useState('');
-  const [salary, setSalary] = useState('');
+  const [assignedJobs, setAssignedJobs] = useState([]);
   const [user, setUser] = useState(null);
-  const [applications, setApplications] = useState({});
-  const [showApplications, setShowApplications] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [filters, setFilters] = useState({
+    category: '',
+    salary: '',
+    location: '',
+    minSalary: '',
+    maxSalary: ''
+  });
 
-  // Modern color scheme
-  const colors = {
-    primary: '#667eea',
-    secondary: '#764ba2',
-    success: '#48bb78',
-    warning: '#ed8936',
-    danger: '#f56565',
-    info: '#4299e1',
-    light: '#f7fafc',
-    dark: '#2d3748',
-    gradient1: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    gradient2: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    gradient3: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    gradient4: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    gradient5: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
-  };
+  // [ADDED] for review stars & reporting
+  const [reviewData, setReviewData] = useState({});
+  const [reporting, setReporting] = useState(false);
+  const [workerReviews, setWorkerReviews] = useState({});
+  const [showReviews, setShowReviews] = useState({});
+  const [reviewComments, setReviewComments] = useState({});
+  const [reportReasons, setReportReasons] = useState({});
+  const [showReportForm, setShowReportForm] = useState({});
+  
+  // [RESTORED] for worker profile and work history
+  const [workerProfiles, setWorkerProfiles] = useState({});
+  const [showWorkerProfile, setShowWorkerProfile] = useState({});
+
+  const token = localStorage.getItem('token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => {
-    // Get user from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
       const parsedUser = JSON.parse(userData);
-      console.log('=== USER DATA DEBUG ===');
-      console.log('Raw user data from localStorage:', userData);
-      console.log('Parsed user object:', parsedUser);
-      console.log('User role:', parsedUser.role);
-      console.log('User job preferences:', parsedUser.jobPreferences);
-      console.log('Job preferences type:', typeof parsedUser.jobPreferences);
-      console.log('Job preferences length:', parsedUser.jobPreferences?.length);
-      console.log('=== END USER DEBUG ===');
       setUser(parsedUser);
-    }
-
-    fetchJobs();
-  }, [category, salary]);
-
-  const fetchJobs = async () => {
-    try {
-      let url = 'http://localhost:5000/api/jobs';
-      const params = [];
-      if (category) params.push(`category=${category}`);
-      if (salary) params.push(`salary=${salary}`);
-      if (params.length) url += '?' + params.join('&');
+      console.log('Current user:', parsedUser);
       
-      const response = await axios.get(url);
-      setJobs(response.data);
-      
-      // Fetch applications for each job if user is logged in
-      if (user) {
-        fetchApplications(response.data);
+      // Fetch assigned jobs if user is a worker
+      if (parsedUser.role === 'worker') {
+        fetchAssignedJobs();
       }
+    }
+    fetchJobs();
+    // eslint-disable-next-line
+  }, []);
+
+  const fetchJobs = async (filterParams = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (filterParams.category) params.append('category', filterParams.category);
+      if (filterParams.salary) params.append('salary', filterParams.salary);
+      if (filterParams.location) params.append('location', filterParams.location);
+      if (filterParams.minSalary) params.append('minSalary', filterParams.minSalary);
+      if (filterParams.maxSalary) params.append('maxSalary', filterParams.maxSalary);
+      
+      const url = params.toString() ? 
+        `http://localhost:5000/api/jobs?${params}` : 
+        'http://localhost:5000/api/jobs';
+        
+      const response = await axios.get(url, { headers });
+      setJobs(response.data || []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       setJobs([]);
     }
   };
 
-  const fetchApplications = async (jobsList) => {
-    if (user?.role === 'employer') {
-      console.log('Fetching applications for employer:', user.id);
-      const apps = {};
-      for (const job of jobsList) {
-        console.log('Checking job:', job._id, 'employer:', job.employer?._id);
-        if (job.employer?._id.toString() === user.id) {
-          console.log('Found job owned by employer, fetching applications...');
-          try {
-            const response = await axios.get(`http://localhost:5000/api/applications/job/${job._id}`, {
-              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            });
-            console.log('Applications received for job:', job._id, response.data);
-            apps[job._id] = response.data;
-          } catch (error) {
-            console.error('Error fetching applications:', error);
-            apps[job._id] = [];
-          }
-        }
-      }
-      console.log('All applications fetched:', apps);
-      setApplications(apps);
+  const handleFilterChange = (field, value) => {
+    if (field === 'reset') {
+      const resetFilters = {
+        category: '',
+        salary: '',
+        location: '',
+        minSalary: '',
+        maxSalary: ''
+      };
+      setFilters(resetFilters);
+      fetchJobs(resetFilters);
+    } else {
+      const newFilters = { ...filters, [field]: value };
+      setFilters(newFilters);
+      fetchJobs(newFilters);
+    }
+  };
+
+  const fetchAssignedJobs = async () => {
+    try {
+      console.log('Fetching assigned jobs with headers:', headers);
+      const response = await axios.get('http://localhost:5000/api/applications/worker/assigned', { headers });
+      console.log('Assigned jobs response:', response.data);
+      setAssignedJobs(response.data || []);
+    } catch (error) {
+      console.error('Error fetching assigned jobs:', error);
+      console.error('Error response:', error.response?.data);
+      setAssignedJobs([]);
     }
   };
 
   const handleApply = async (message) => {
     try {
-      const token = localStorage.getItem('token');
+      console.log('handleApply called with message:', message);
+      console.log('selectedJob:', selectedJob);
+      console.log('token exists:', !!token);
+      console.log('headers:', headers);
+      console.log('user data:', user);
+      
       if (!token) {
-        alert('Please login to apply for jobs');
+        alert('Please login to apply');
         return;
       }
-
-      const response = await axios.post('http://localhost:5000/api/applications/apply', {
-        jobId: selectedJob._id,
-        message
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      alert('Application submitted successfully!');
       
-      // Refresh jobs and applications
-      await fetchJobs();
-      if (user?.role === 'employer') {
-        await fetchApplications(jobs);
+      if (!selectedJob || !selectedJob._id) {
+        alert('No job selected. Please try again.');
+        return;
       }
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error applying for job');
+      
+      console.log('Submitting application for job:', selectedJob._id);
+      
+      const requestData = { jobId: selectedJob._id, message };
+      console.log('Request data:', requestData);
+      
+      await axios.post(
+        'http://localhost:5000/api/applications/',
+        requestData,
+        { headers }
+      );
+      alert('Application submitted!');
+      setModalOpen(false);
+      setSelectedJob(null); // Reset selected job
+      fetchJobs();
+    } catch (err) {
+      console.error('Application error:', err);
+      console.error('Error response:', err.response);
+      console.error('Error status:', err.response?.status);
+      console.error('Error data:', err.response?.data);
+      
+      if (err.response?.status === 401) {
+        alert('Authentication failed. Please login again.');
+      } else if (err.response?.status === 400) {
+        alert(err.response.data.error || 'Bad request. Please check your input.');
+      } else if (err.response?.status === 500) {
+        alert('Server error. Please try again later.');
+      } else {
+        alert(err.response?.data?.error || 'Failed to apply. Please try again.');
+      }
     }
-  };
-
-  const openApplicationModal = (job) => {
-    setSelectedJob(job);
-    setModalOpen(true);
   };
 
   const handleAssignWorker = async (jobId, workerId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5000/api/applications/assign', {
-        jobId,
-        workerId
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      alert('Worker assigned successfully!');
-      fetchJobs(); // Refresh jobs
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error assigning worker');
+      await axios.post(
+        'http://localhost:5000/api/applications/assign',
+        { jobId, workerId },
+        { headers }
+      );
+      alert('Worker assigned!');
+      fetchJobs();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to assign');
     }
   };
 
-  const getApplicationStatus = (jobId) => {
-    if (!user || user.role !== 'worker') return null;
-    
-    // Check if user has applied for this job
-    const job = jobs.find(j => j._id === jobId);
-    if (job?.applications) {
-      const userApplication = job.applications.find(app => app.worker.toString() === user.id);
-      return userApplication?.status || null;
-    }
-    return null;
-  };
-
-  const renderApplyButton = (job) => {
-    if (!user || user.role !== 'worker') return null;
-    
-    console.log('=== EXPERTISE MATCHING DEBUG ===');
-    console.log('Job category:', job.category);
-    console.log('Job category type:', typeof job.category);
-    console.log('User job preferences:', user.jobPreferences);
-    console.log('User job preferences type:', typeof user.jobPreferences);
-    console.log('User job preferences length:', user.jobPreferences?.length);
-    
-    if (user.jobPreferences && user.jobPreferences.length > 0) {
-      user.jobPreferences.forEach((pref, index) => {
-        console.log(`Preference ${index}:`, pref, 'Type:', typeof pref);
-        console.log(`Comparing: "${pref.toLowerCase()}" === "${job.category.toLowerCase()}"`);
-        console.log(`Match result:`, pref.toLowerCase() === job.category.toLowerCase());
-      });
-    }
-    
-    const canApply = (() => {
-      // Safety checks
-      if (!user.jobPreferences) {
-        console.log('No job preferences found');
-        return false;
+  // [ADDED] Worker reports employer
+  const handleReportEmployer = async (jobId) => {
+    try {
+      setReporting(true);
+      const reason = reportReasons[jobId];
+      
+      if (!reason || reason.trim() === '') {
+        alert('Please provide a reason for reporting the employer.');
+        setReporting(false);
+        return;
       }
       
-      if (!Array.isArray(user.jobPreferences)) {
-        console.log('Job preferences is not an array:', user.jobPreferences);
-        return false;
-      }
+      console.log('Reporting employer for job:', jobId, 'with reason:', reason);
+      console.log('Headers:', headers);
+      console.log('User data:', user);
+      console.log('Request payload:', { jobId, reason: reason.trim() });
       
-      if (user.jobPreferences.length === 0) {
-        console.log('Job preferences array is empty');
-        return false;
+      const response = await axios.post(
+        'http://localhost:5000/api/applications/report',
+        { jobId, reason: reason.trim() },
+        { headers }
+      );
+      console.log('Report response:', response.data);
+      alert('Employer reported successfully!');
+      setShowReportForm({ ...showReportForm, [jobId]: false });
+      setReportReasons({ ...reportReasons, [jobId]: '' });
+      fetchJobs();
+      if (user?.role === 'worker') {
+        fetchAssignedJobs();
       }
-      
-      // Try exact match first
-      const exactMatch = user.jobPreferences.some(pref => 
-        pref === job.category
-      );
-      if (exactMatch) {
-        console.log('Exact match found');
-        return true;
-      }
-      
-      // Try case-insensitive match
-      const caseInsensitiveMatch = user.jobPreferences.some(pref => 
-        pref.toLowerCase() === job.category.toLowerCase()
-      );
-      if (caseInsensitiveMatch) {
-        console.log('Case-insensitive match found');
-        return true;
-      }
-      
-      // Try partial match (in case there are extra spaces or formatting)
-      const partialMatch = user.jobPreferences.some(pref => 
-        pref.toLowerCase().trim() === job.category.toLowerCase().trim()
-      );
-      if (partialMatch) {
-        console.log('Partial match found after trimming');
-        return true;
-      }
-      
-      console.log('No matches found');
-      return false;
-    })();
-    console.log('Final canApply result:', canApply);
-    console.log('=== END DEBUG ===');
-    
-    const applicationStatus = getApplicationStatus(job._id);
-    
-    if (applicationStatus === 'assigned') {
-      return (
-        <div style={{ 
-          background: colors.gradient4, 
-          color: 'white', 
-          padding: '12px 20px', 
-          borderRadius: '25px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          boxShadow: '0 4px 15px rgba(67, 233, 123, 0.3)'
-        }}>
-          🎯 Assigned to you!
-        </div>
-      );
-    } else if (applicationStatus === 'accepted') {
-      return (
-        <div style={{ 
-          background: colors.gradient3, 
-          color: 'white', 
-          padding: '12px 20px', 
-          borderRadius: '25px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          boxShadow: '0 4px 15px rgba(79, 172, 254, 0.3)'
-        }}>
-          ✓ Application Accepted
-        </div>
-      );
-    } else if (applicationStatus === 'rejected') {
-      return (
-        <div style={{ 
-          background: colors.gradient2, 
-          color: 'white', 
-          padding: '12px 20px', 
-          borderRadius: '25px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          boxShadow: '0 4px 15px rgba(240, 147, 251, 0.3)'
-        }}>
-          ✗ Application Rejected
-        </div>
-      );
-    } else if (applicationStatus === 'pending') {
-      return (
-        <div style={{ 
-          background: colors.gradient5, 
-          color: 'white', 
-          padding: '12px 20px', 
-          borderRadius: '25px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          boxShadow: '0 4px 15px rgba(250, 112, 154, 0.3)'
-        }}>
-          ⏳ Application Pending
-        </div>
-      );
-    } else {
-      // Check if worker's expertise matches job category
-      const canApply = (() => {
-        // Safety checks
-        if (!user.jobPreferences) {
-          console.log('No job preferences found');
-          return false;
-        }
-        
-        if (!Array.isArray(user.jobPreferences)) {
-          console.log('Job preferences is not an array:', user.jobPreferences);
-          return false;
-        }
-        
-        if (user.jobPreferences.length === 0) {
-          console.log('Job preferences array is empty');
-          return false;
-        }
-        
-        // Try exact match first
-        const exactMatch = user.jobPreferences.some(pref => 
-          pref === job.category
-        );
-        if (exactMatch) {
-          console.log('Exact match found');
-          return true;
-        }
-        
-        // Try case-insensitive match
-        const caseInsensitiveMatch = user.jobPreferences.some(pref => 
-          pref.toLowerCase() === job.category.toLowerCase()
-        );
-        if (caseInsensitiveMatch) {
-          console.log('Case-insensitive match found');
-          return true;
-        }
-        
-        // Try partial match (in case there are extra spaces or formatting)
-        const partialMatch = user.jobPreferences.some(pref => 
-          pref.toLowerCase().trim() === job.category.toLowerCase().trim()
-        );
-        if (partialMatch) {
-          console.log('Partial match found after trimming');
-          return true;
-        }
-        
-        console.log('No matches found');
-        return false;
-      })();
-      if (canApply) {
-        return (
-          <button 
-            onClick={() => openApplicationModal(job)}
-            style={{ 
-              background: colors.gradient1, 
-              color: 'white', 
-              border: 'none', 
-              padding: '12px 24px', 
-              borderRadius: '25px', 
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '14px',
-              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
-            }}
-          >
-             Apply for Job
-          </button>
-        );
+    } catch (err) {
+      console.error('Report error:', err);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      if (err.response?.status === 400) {
+        alert('Please provide a reason for reporting the employer.');
+      } else if (err.response?.status === 403) {
+        alert('You are not assigned to this job and cannot report the employer.');
+      } else if (err.response?.status === 404) {
+        alert('Job not found. Please refresh the page and try again.');
       } else {
-        return (
-          <div style={{ 
-            background: '#e2e8f0', 
-            color: '#64748b', 
-            padding: '12px 20px', 
-            borderRadius: '25px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            border: '2px dashed #cbd5e1'
-          }}>
-            ⚠️ Expertise doesn't match
-          </div>
-        );
+        alert(`Failed to report employer: ${err.response?.data?.error || err.message}`);
       }
+    } finally {
+      setReporting(false);
     }
   };
 
-  const renderEmployerControls = (job) => {
-    if (!user || user.role !== 'employer' || job.employer?._id.toString() !== user.id) return null;
+  // [ADDED] Employer reviews worker
+  const handleReviewWorker = async (jobId, workerId, rating) => {
+    try {
+      const comment = reviewComments[workerId] || '';
+      console.log('Reviewing worker:', workerId, 'for job:', jobId, 'with rating:', rating);
+      await axios.post(
+        'http://localhost:5000/api/applications/review',
+        { jobId, workerId, rating, comment },
+        { headers }
+      );
+      alert('Review submitted!');
+      setReviewData({ ...reviewData, [workerId]: rating });
+      setReviewComments({ ...reviewComments, [workerId]: '' });
+    } catch (err) {
+      console.error('Review error:', err);
+      alert(err.response?.data?.error || 'Failed to review');
+    }
+  };
 
-    const jobApplications = applications[job._id] || [];
-    const hasApplications = jobApplications.length > 0;
+  // [ADDED] Get worker reviews
+  const handleGetWorkerReviews = async (workerId) => {
+    try {
+      if (workerReviews[workerId]) {
+        setShowReviews({ ...showReviews, [workerId]: !showReviews[workerId] });
+        return;
+      }
+      
+      const response = await axios.get(
+        `http://localhost:5000/api/applications/worker/${workerId}/reviews`,
+        { headers }
+      );
+      setWorkerReviews({ ...workerReviews, [workerId]: response.data });
+      setShowReviews({ ...showReviews, [workerId]: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to fetch reviews');
+    }
+  };
 
-    return (
-      <div style={{ 
-        marginTop: 20, 
-        padding: '20px',
-        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-        borderRadius: '15px',
-        border: '1px solid #e2e8f0'
-      }}>
-        <h4 style={{ 
-          margin: '0 0 15px 0', 
-          color: colors.dark,
-          fontSize: '18px',
-          fontWeight: '600'
-        }}>
-          📋 Applications ({jobApplications.length})
-        </h4>
-        {hasApplications ? (
-          <div>
-            <button 
-              onClick={() => setShowApplications({ ...showApplications, [job._id]: !showApplications[job._id] })}
-              style={{ 
-                background: colors.gradient4, 
-                color: 'white', 
-                border: 'none', 
-                padding: '10px 20px', 
-                borderRadius: '20px', 
-                cursor: 'pointer',
-                marginBottom: 15,
-                fontWeight: 'bold',
-                boxShadow: '0 4px 15px rgba(67, 233, 123, 0.3)',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 6px 20px rgba(67, 233, 123, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 4px 15px rgba(67, 233, 123, 0.3)';
-              }}
-            >
-              {showApplications[job._id] ? '👁️ Hide Applications' : '👁️ View Applications'}
-            </button>
-            
-            {showApplications[job._id] && (
-              <div style={{ marginTop: 15 }}>
-                {jobApplications.map((app, index) => (
-                  <div key={app._id} style={{ 
-                    border: '1px solid #e2e8f0', 
-                    padding: '20px', 
-                    marginBottom: '15px', 
-                    borderRadius: '12px',
-                    background: 'white',
-                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-                    transition: 'all 0.3s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)';
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <h5 style={{ 
-                          margin: '0 0 10px 0', 
-                          color: colors.primary,
-                          fontSize: '16px',
-                          fontWeight: '600'
-                        }}>
-                          👤 {app.worker.name}
-                        </h5>
-                        <p style={{ margin: '5px 0', color: colors.dark }}><strong>📞 Contact:</strong> {app.worker.contact}</p>
-                        <p style={{ margin: '5px 0', color: colors.dark }}><strong>🛠️ Expertise:</strong> {app.worker.jobPreferences.join(', ')}</p>
-                        <p style={{ margin: '5px 0', color: colors.dark }}><strong>⏰ Availability:</strong> {app.worker.availability}</p>
-                        <p style={{ margin: '5px 0', color: colors.dark }}><strong>📊 Status:</strong> 
-                          <span style={{ 
-                            color: app.status === 'pending' ? colors.warning : 
-                                   app.status === 'accepted' ? colors.success : 
-                                   app.status === 'rejected' ? colors.danger : colors.info,
-                            fontWeight: 'bold',
-                            marginLeft: 8
-                          }}>
-                            {app.status.toUpperCase()}
-                          </span>
-                        </p>
-                        {app.message && (
-                          <div style={{ 
-                            background: '#f7fafc', 
-                            padding: '12px', 
-                            borderRadius: '8px', 
-                            marginTop: '10px',
-                            borderLeft: `4px solid ${colors.primary}`
-                          }}>
-                            <p style={{ margin: 0, fontStyle: 'italic', color: colors.dark }}>
-                              💬 "{app.message}"
-                            </p>
-                          </div>
-                        )}
+  // [RESTORED] Get worker profile and work history
+  const handleGetWorkerProfile = async (workerId) => {
+    try {
+      if (workerProfiles[workerId]) {
+        setShowWorkerProfile({ ...showWorkerProfile, [workerId]: !showWorkerProfile[workerId] });
+        return;
+      }
+      
+      const response = await axios.get(
+        `http://localhost:5000/api/applications/worker/${workerId}/profile`,
+        { headers }
+      );
+      setWorkerProfiles({ ...workerProfiles, [workerId]: response.data });
+      setShowWorkerProfile({ ...showWorkerProfile, [workerId]: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to fetch worker profile');
+    }
+  };
+
+  // const openApplicationModal = (job) => {
+  //   setSelectedJob(job);
+  //   setModalOpen(true);
+  // };
+
+  return (
+    <div className="professional-container">
+      <div className="professional-page-header">
+        <h1 className="professional-page-title">Job Listings</h1>
+      </div>
+      
+      {/* Job Filters */}
+      <JobFilters 
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        userRole={user?.role}
+      />
+      <p className="professional-page-subtitle">Discover opportunities that match your skills and interests</p>
+      
+      {/* Assigned Jobs Section for Workers */}
+      {user?.role === 'worker' && assignedJobs.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h2 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>🎯 Your Assigned Jobs</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+            Jobs you've been assigned to work on. You can report employers if needed.
+          </p>
+          {assignedJobs.map((job) => (
+            <div key={job._id} className="professional-card job-card" style={{ marginBottom: '1rem' }}>
+              <div className="professional-card-header">
+                <div className="job-card-header">
+                  <div>
+                    <h3 className="job-title">{job.category} Position</h3>
+                    <div className="status-badge status-assigned">Assigned to You</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="professional-card-body">
+                <div className="job-details-grid">
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">👤</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Employer</p>
+                      <p className="job-detail-value">{job.employer?.name}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">📞</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Contact</p>
+                      <p className="job-detail-value">{job.employer?.contact}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">⏰</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Working Hours</p>
+                      <p className="job-detail-value">{job.workingHours}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">💰</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Salary</p>
+                      <p className="job-detail-value">{job.salaryRange}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">📍</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Address</p>
+                      <p className="job-detail-value">{job.address}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="job-description">
+                  <p className="job-description-text">{job.description}</p>
+                </div>
+
+                {/* Employer Reported Warning */}
+            {job.employer?.reportedCount > 0 && (
+                  <div className={`professional-alert ${job.employer.reportedCount >= 3 ? 'professional-alert-error' : 'professional-alert-warning'}`}>
+                    <p style={{ margin: 0, fontWeight: 'bold' }}>
+                      {job.employer.reportedCount >= 3 ? '🚨' : '⚠️'} Employer Reported: {job.employer.reportedCount} time{job.employer.reportedCount > 1 ? 's' : ''}
+                      {job.employer.reportedCount >= 3 && (
+                        <span style={{ display: 'block', fontSize: '0.875rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
+                          This employer has been reported multiple times. Please proceed with caution.
+                        </span>
+                      )}
+                </p>
+              </div>
+            )}
+
+                {/* Report Employer Button */}
+                <div className="job-actions">
+                    {!showReportForm[job._id] ? (
+                      <button 
+                        onClick={() => setShowReportForm({ ...showReportForm, [job._id]: true })}
+                      className="professional-btn professional-btn-danger professional-btn-sm"
+                      >
+                        🚨 Report Employer
+                      </button>
+                    ) : (
+                    <div className="professional-card" style={{ marginTop: '1rem' }}>
+                      <div className="professional-card-body">
+                        <div className="professional-form-group">
+                          <label className="professional-form-label">Reason for reporting (required)</label>
+                        <input
+                          type="text"
+                            placeholder="Please describe the issue..."
+                          value={reportReasons[job._id] || ''}
+                          onChange={(e) => setReportReasons({ ...reportReasons, [job._id]: e.target.value })}
+                            className="professional-form-input"
+                          />
+                        </div>
+                        <div className="job-actions">
+                          <button
+                            onClick={() => handleReportEmployer(job._id)}
+                            disabled={reporting || !reportReasons[job._id]}
+                            className="professional-btn professional-btn-danger professional-btn-sm"
+                          >
+                            {reporting ? 'Reporting...' : 'Submit Report'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowReportForm({ ...showReportForm, [job._id]: false });
+                              setReportReasons({ ...reportReasons, [job._id]: '' });
+                            }}
+                            className="professional-btn professional-btn-secondary professional-btn-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      
-                      {job.status === 'open' && app.status === 'pending' && (
-                        <button 
-                          onClick={() => handleAssignWorker(job._id, app.worker._id)}
-                          style={{ 
-                            background: colors.gradient4, 
-                            color: 'white', 
-                            border: 'none', 
-                            padding: '10px 20px', 
-                            borderRadius: '20px', 
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 15px rgba(67, 233, 123, 0.3)',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-1px)';
-                            e.target.style.boxShadow = '0 6px 20px rgba(67, 233, 123, 0.4)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 4px 15px rgba(67, 233, 123, 0.3)';
-                          }}
-                        >
-                          ✅ Assign Worker
-                        </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {jobs.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">💼</div>
+          <h3 className="empty-state-title">No Jobs Available</h3>
+          <p className="empty-state-description">There are currently no job listings available. Check back later for new opportunities!</p>
+        </div>
+      ) : user?.role === 'worker' && (!user?.jobPreferences || user.jobPreferences.length === 0) ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚙️</div>
+          <h3 className="empty-state-title">Set Your Job Preferences</h3>
+          <p className="empty-state-description">
+            To see relevant job opportunities, please update your profile and select your job preferences first.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/profile'}
+            className="professional-btn professional-btn-primary professional-btn-lg"
+          >
+            Update Profile
+          </button>
+        </div>
+      ) : (
+        jobs.map((job) => {
+          const isEmployer = user?.role === 'employer';
+          const isWorker = user?.role === 'worker';
+          
+          // Check if job matches worker's preferences
+          const jobMatchesWorker = isWorker && user?.jobPreferences && 
+            user.jobPreferences.some(preference => 
+              preference.toLowerCase() === job.category.toLowerCase()
+            );
+          
+          // Debug logging for job data
+          console.log('Job:', job._id, 'Assigned worker:', job.assignedWorker, 'Current user ID:', user?._id, 'User role:', user?.role);
+          console.log('User object keys:', user ? Object.keys(user) : 'No user');
+          console.log('User ID comparison:', String(job.assignedWorker), '===', String(user?._id));
+          console.log('Job matches worker preferences:', jobMatchesWorker, 'Job category:', job.category, 'Worker preferences:', user?.jobPreferences);
+          console.log('Job status:', job.status, 'Can report:', isWorker && job.status === 'assigned' && String(job.assignedWorker) === String(user?._id || user?.id));
+
+          return (
+            <div key={job._id} className={`professional-card job-card ${isWorker && !jobMatchesWorker ? 'job-card-no-match' : ''}`}>
+              <div className="professional-card-header">
+                <div className="job-card-header">
+                  <div>
+                    <h3 className="job-title">{job.category} Position</h3>
+                    <div className="flex gap-2 items-center">
+                      <div className="status-badge status-open">Open Position</div>
+                      {isWorker && (
+                        <div className={`status-badge ${jobMatchesWorker ? 'status-accepted' : 'status-rejected'}`}>
+                          {jobMatchesWorker ? '✅ Matches Your Skills' : '❌ Not Your Specialty'}
+                        </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="professional-card-body">
+                <div className="job-details-grid">
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">👤</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Employer</p>
+                      <p className="job-detail-value">{job.employer?.name}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">📞</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Contact</p>
+                      <p className="job-detail-value">{job.employer?.contact}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">⏰</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Working Hours</p>
+                      <p className="job-detail-value">{job.workingHours}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">💰</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Salary</p>
+                      <p className="job-detail-value">{job.salaryRange}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="job-detail-item">
+                    <div className="job-detail-icon">📍</div>
+                    <div className="job-detail-content">
+                      <p className="job-detail-label">Address</p>
+                      <p className="job-detail-value">{job.address}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="job-description">
+                  <p className="job-description-text">{job.description}</p>
+                </div>
+
+                {/* Employer Reported Warning */}
+                {job.employer?.reportedCount > 0 && (
+                  <div className={`professional-alert ${job.employer.reportedCount >= 3 ? 'professional-alert-error' : 'professional-alert-warning'}`}>
+                    <p style={{ margin: 0, fontWeight: 'bold' }}>
+                      {job.employer.reportedCount >= 3 ? '🚨' : '⚠️'} Employer Reported: {job.employer.reportedCount} time{job.employer.reportedCount > 1 ? 's' : ''}
+                      {job.employer.reportedCount >= 3 && (
+                        <span style={{ display: 'block', fontSize: '0.875rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
+                          This employer has been reported multiple times. Please proceed with caution.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="job-actions">
+                  {isWorker && jobMatchesWorker && (
+                    <button 
+                      onClick={() => {
+                        console.log('Apply button clicked for job:', job);
+                        setSelectedJob(job);
+                        setModalOpen(true);
+                      }}
+                      className="professional-btn professional-btn-primary"
+                    >
+                      ✨ Apply Now
+                    </button>
+                  )}
+                  
+                  {isWorker && !jobMatchesWorker && (
+                    <div className="professional-alert professional-alert-warning">
+                      <p style={{ margin: 0, fontWeight: 'bold' }}>
+                        ⚠️ This job doesn't match your current skill preferences. 
+                        <br />
+                        <small>Update your profile to include "{job.category}" in your job preferences to apply.</small>
+                      </p>
+              </div>
+            )}
+
+                  {/* Report Employer Button - Show for assigned workers */}
+                  {isWorker && job.status === 'assigned' && String(job.assignedWorker) === String(user?._id || user?.id) && (
+                    <div>
+                      {!showReportForm[job._id] ? (
+                        <button 
+                          onClick={() => setShowReportForm({ ...showReportForm, [job._id]: true })}
+                          className="professional-btn professional-btn-danger professional-btn-sm"
+                        >
+                          🚨 Report Employer
+                        </button>
+                      ) : (
+                        <div className="professional-card" style={{ marginTop: '1rem' }}>
+                          <div className="professional-card-body">
+                            <div className="professional-form-group">
+                              <label className="professional-form-label">Reason for reporting (required)</label>
+                              <input
+                                type="text"
+                                placeholder="Please describe the issue..."
+                                value={reportReasons[job._id] || ''}
+                                onChange={(e) => setReportReasons({ ...reportReasons, [job._id]: e.target.value })}
+                                className="professional-form-input"
+                              />
+                            </div>
+                            <div className="job-actions">
+                              <button
+                                onClick={() => handleReportEmployer(job._id)}
+                                disabled={reporting || !reportReasons[job._id]}
+                                className="professional-btn professional-btn-danger professional-btn-sm"
+                              >
+                                {reporting ? 'Reporting...' : 'Submit Report'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowReportForm({ ...showReportForm, [job._id]: false });
+                                  setReportReasons({ ...reportReasons, [job._id]: '' });
+                                }}
+                                className="professional-btn professional-btn-secondary professional-btn-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Applications Section for Employers */}
+            {isEmployer && job.applications?.length > 0 && (
+                <div className="professional-card-footer">
+                  <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>📋 Applications ({job.applications.length})</h4>
+                  {job.applications.map((app) => (
+                    <div key={app._id} className="professional-card" style={{ marginBottom: '1rem' }}>
+                      <div className="professional-card-body">
+                        <div className="flex justify-between items-center mb-2">
+              <div>
+                            <h5 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>👤 {app.worker?.name}</h5>
+                            <div className="status-badge status-pending">{app.status}</div>
+                          </div>
+                          <div className="job-actions">
+                     <button 
+                       onClick={() => handleGetWorkerProfile(app.worker?._id)}
+                              className="professional-btn professional-btn-secondary professional-btn-sm"
+                     >
+                       {showWorkerProfile[app.worker?._id] ? 'Hide Profile' : 'View Profile'}
+                     </button>
+                     
+                     <button 
+                       onClick={() => handleGetWorkerReviews(app.worker?._id)}
+                              className="professional-btn professional-btn-secondary professional-btn-sm"
+                     >
+                       {showReviews[app.worker?._id] ? 'Hide Reviews' : 'View Reviews'}
+                     </button>
+                          </div>
+                        </div>
+                    
+                                         {showReviews[app.worker?._id] && workerReviews[app.worker?._id] && (
+                          <div className="professional-alert professional-alert-info" style={{ marginTop: '1rem' }}>
+                            <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold' }}>
+                           ⭐ Average Rating: {workerReviews[app.worker?._id].averageRating}/5 
+                           ({workerReviews[app.worker?._id].totalReviews} reviews)
+                         </p>
+                         {workerReviews[app.worker?._id].reviews.slice(0, 3).map((review, idx) => (
+                           <div key={idx} style={{ 
+                                borderBottom: '1px solid var(--border-light)', 
+                                paddingBottom: '0.5rem', 
+                                marginBottom: '0.5rem' 
+                              }}>
+                                <div style={{ color: '#fbbf24', fontSize: '1.2rem' }}>
+                               {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                             </div>
+                                {review.comment && <p style={{ margin: '0.25rem 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{review.comment}</p>}
+                           </div>
+                         ))}
+                       </div>
+                     )}
+
+                        {/* Worker Profile and Work History Display */}
+                     {showWorkerProfile[app.worker?._id] && workerProfiles[app.worker?._id] && (
+                          <div className="professional-alert professional-alert-info" style={{ marginTop: '1rem' }}>
+                            <h5 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>👷 Worker Profile</h5>
+                         
+                         {/* Basic Info */}
+                            <div className="job-details-grid" style={{ marginBottom: '1rem' }}>
+                              <div className="job-detail-item">
+                                <div className="job-detail-icon">📞</div>
+                                <div className="job-detail-content">
+                                  <p className="job-detail-label">Contact</p>
+                                  <p className="job-detail-value">{workerProfiles[app.worker?._id].worker?.contact || 'N/A'}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="job-detail-item">
+                                <div className="job-detail-icon">✅</div>
+                                <div className="job-detail-content">
+                                  <p className="job-detail-label">NID Verified</p>
+                                  <p className="job-detail-value">{workerProfiles[app.worker?._id].worker?.nidVerified ? 'Yes' : 'No'}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="job-detail-item">
+                                <div className="job-detail-icon">⏰</div>
+                                <div className="job-detail-content">
+                                  <p className="job-detail-label">Availability</p>
+                                  <p className="job-detail-value">{workerProfiles[app.worker?._id].worker?.availability || 'N/A'}</p>
+                                </div>
+                              </div>
+                         </div>
+
+                         {/* Job Preferences */}
+                         {workerProfiles[app.worker?._id].worker?.jobPreferences?.length > 0 && (
+                              <div style={{ marginBottom: '1rem' }}>
+                                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Job Preferences:</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                               {workerProfiles[app.worker?._id].worker.jobPreferences.map((pref, idx) => (
+                                    <span key={idx} className="status-badge status-open" style={{ fontSize: '0.75rem' }}>
+                                   {pref}
+                                 </span>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+
+                         {/* Work History */}
+                         {workerProfiles[app.worker?._id].history?.length > 0 && (
+                           <div>
+                                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Previous Work History:</p>
+                             {workerProfiles[app.worker?._id].history.slice(0, 3).map((job, idx) => (
+                                  <div key={idx} className="professional-card" style={{ marginBottom: '0.5rem' }}>
+                                    <div className="professional-card-body" style={{ padding: '0.75rem' }}>
+                                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                   {job.job?.category} - {job.job?.employer?.name}
+                                 </p>
+                                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                   {job.job?.workingHours} • {job.job?.salaryRange} • {job.job?.address}
+                                 </p>
+                                      <p style={{ margin: '0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                   Status: {job.status} • {new Date(job.createdAt).toLocaleDateString()}
+                                 </p>
+                                    </div>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                       </div>
+                     )}
+                    
+                        <div className="job-actions" style={{ marginTop: '1rem' }}>
+                    {job.status === 'open' && (
+                            <button 
+                              onClick={() => handleAssignWorker(job._id, app.worker?._id)}
+                              className="professional-btn professional-btn-success"
+                            >
+                              ✅ Assign Worker
+                            </button>
+                          )}
+
+                          {/* Review worker after assignment */}
+                    {job.status === 'assigned' && String(job.assignedWorker) === String(app.worker?._id || app.worker?.id) && (
+                            <div className="professional-card" style={{ marginTop: '1rem' }}>
+                              <div className="professional-card-body">
+                                <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: 'var(--text-primary)' }}>⭐ Review this worker:</p>
+                                <div style={{ marginBottom: '1rem' }}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              style={{
+                                        color: reviewData[app.worker?._id] >= star ? '#fbbf24' : '#d1d5db',
+                                        fontSize: '1.5rem',
+                                        marginRight: '0.5rem',
+                                background: 'none',
+                                border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease'
+                              }}
+                              onClick={() => setReviewData({ ...reviewData, [app.worker?._id]: star })}
+                                      onMouseEnter={(e) => e.target.style.color = '#fbbf24'}
+                                      onMouseLeave={(e) => e.target.style.color = reviewData[app.worker?._id] >= star ? '#fbbf24' : '#d1d5db'}
+                            >
+                              ★
+                            </button>
+                          ))}
+                        </div>
+                                <div className="professional-form-group">
+                        <input
+                          type="text"
+                          placeholder="Add a comment (optional)"
+                          value={reviewComments[app.worker?._id] || ''}
+                          onChange={(e) => setReviewComments({ ...reviewComments, [app.worker?._id]: e.target.value })}
+                                    className="professional-form-input"
+                                  />
+                                </div>
+                        <button
+                          onClick={() => handleReviewWorker(job._id, app.worker?._id, reviewData[app.worker?._id] || 0)}
+                          disabled={!reviewData[app.worker?._id]}
+                                  className="professional-btn professional-btn-success"
+                        >
+                          Submit Review
+                        </button>
+                              </div>
+                      </div>
+                    )}
+                        </div>
+                      </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        ) : (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '20px',
-            color: '#64748b',
-            fontStyle: 'italic'
-          }}>
-            📭 No applications yet
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ 
-      maxWidth: 1000, 
-      margin: 'auto', 
-      padding: '30px 20px',
-      background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
-      minHeight: '100vh'
-    }}>
-      <div style={{ 
-        background: colors.gradient1, 
-        padding: '30px', 
-        borderRadius: '20px', 
-        marginBottom: '30px',
-        color: 'white',
-        textAlign: 'center',
-        boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)'
-      }}>
-        <h1 style={{ 
-          margin: 0, 
-          fontSize: '2.5rem', 
-          fontWeight: 'bold',
-          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-           Job Listings
-        </h1>
-        <p style={{ 
-          margin: '10px 0 0 0', 
-          fontSize: '1.1rem', 
-          opacity: 0.9 
-        }}>
-          Find your next opportunity or post a job
-        </p>
-      </div>
-      
-      
-      
-      {/* Refresh button for employers */}
-      {user?.role === 'employer' && (
-        <div style={{ marginBottom: '25px', textAlign: 'right' }}>
-          <button 
-            onClick={() => fetchApplications(jobs)}
-            style={{ 
-              background: colors.gradient3, 
-              color: 'white', 
-              border: 'none', 
-              padding: '12px 24px', 
-              borderRadius: '25px', 
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '14px',
-              boxShadow: '0 4px 15px rgba(79, 172, 254, 0.3)',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 6px 20px rgba(79, 172, 254, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 15px rgba(79, 172, 254, 0.3)';
-            }}
-          >
-            🔄 Refresh Applications
-          </button>
-        </div>
+        );
+        })
       )}
-      
-      {/* Filters */}
-      <div style={{ 
-        background: 'white', 
-        padding: '25px', 
-        borderRadius: '15px', 
-        marginBottom: '30px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 20px 0', 
-          color: colors.dark,
-          fontSize: '1.3rem',
-          fontWeight: '600'
-        }}>
-          🔍 Filter Jobs
-        </h3>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select 
-            value={category} 
-            onChange={e => setCategory(e.target.value)} 
-            style={{ 
-              padding: '12px 20px', 
-              borderRadius: '10px', 
-              border: '2px solid #e2e8f0',
-              fontSize: '14px',
-              minWidth: '150px',
-              background: 'white',
-              color: colors.dark
-            }}
-          >
-            <option value="">All Categories</option>
-            <option value="plumbing">🔧 Plumbing</option>
-            <option value="cleaning">🧹 Cleaning</option>
-            <option value="electrical">⚡ Electrical</option>
-            <option value="cooking">👨‍🍳 Cooking</option>
-            <option value="painting">🎨 Painting</option>
-          </select>
-          <input 
-            placeholder="💰 Salary Range" 
-            value={salary} 
-            onChange={e => setSalary(e.target.value)}
-            style={{ 
-              padding: '12px 20px', 
-              borderRadius: '10px', 
-              border: '2px solid #e2e8f0',
-              fontSize: '14px',
-              minWidth: '200px',
-              background: 'white',
-              color: colors.dark
-            }}
-          />
-        </div>
-      </div>
-      
-      {/* Jobs List */}
-      <div>
-        {jobs.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: '15px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-          }}>
-            <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🔍</div>
-            <h3 style={{ color: colors.dark, marginBottom: '10px' }}>No jobs found</h3>
-            <p style={{ color: '#64748b' }}>Try adjusting your filters or check back later</p>
-          </div>
-        ) : (
-          jobs.map((job, index) => (
-            <div key={job._id} style={{ 
-              background: 'white', 
-              marginBottom: '25px', 
-              padding: '30px', 
-              borderRadius: '20px', 
-              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.1)',
-              border: '1px solid #e2e8f0',
-              transition: 'all 0.3s ease',
-              transform: 'translateY(0)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 0, 0, 0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.1)';
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    background: colors.gradient1, 
-                    color: 'white', 
-                    padding: '8px 20px', 
-                    borderRadius: '20px',
-                    display: 'inline-block',
-                    marginBottom: '15px',
-                    fontWeight: 'bold',
-                    fontSize: '14px'
-                  }}>
-                    🏷️ {job.category.toUpperCase()}
-                  </div>
-                  
-                  <h3 style={{ 
-                    margin: '0 0 15px 0', 
-                    color: colors.dark,
-                    fontSize: '1.5rem',
-                    fontWeight: '600'
-                  }}>
-                    {job.category} Position
-                  </h3>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-                    <div style={{ 
-                      background: '#f7fafc', 
-                      padding: '15px', 
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>👤 Employer</p>
-                      <p style={{ margin: 0, color: colors.dark }}>{job.employer?.name}</p>
-                    </div>
-                    <div style={{ 
-                      background: '#f7fafc', 
-                      padding: '15px', 
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>📞 Contact</p>
-                      <p style={{ margin: 0, color: colors.dark }}>{job.employer?.contact || 'Contact not available'}</p>
-                    </div>
-                    <div style={{ 
-                      background: '#f7fafc', 
-                      padding: '15px', 
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>⏰ Working Hours</p>
-                      <p style={{ margin: 0, color: colors.dark }}>{job.workingHours}</p>
-                    </div>
-                    <div style={{ 
-                      background: '#f7fafc', 
-                      padding: '15px', 
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>💰 Salary</p>
-                      <p style={{ margin: 0, color: colors.dark }}>{job.salaryRange}</p>
-                    </div>
-                  </div>
-                  
-                  <div style={{ 
-                    background: '#f7fafc', 
-                    padding: '15px', 
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    marginBottom: '15px'
-                  }}>
-                    <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>📍 Address</p>
-                    <p style={{ margin: 0, color: colors.dark }}>{job.address}</p>
-                  </div>
-                  
-                  <div style={{ 
-                    background: '#f7fafc', 
-                    padding: '15px', 
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    marginBottom: '15px'
-                  }}>
-                    <p style={{ margin: '0 0 5px 0', color: colors.primary, fontWeight: '600' }}>📝 Description</p>
-                    <p style={{ margin: 0, color: colors.dark }}>{job.description}</p>
-                  </div>
-                  
-                  <div style={{ 
-                    background: colors.gradient4, 
-                    color: 'white', 
-                    padding: '8px 20px', 
-                    borderRadius: '20px',
-                    display: 'inline-block',
-                    fontWeight: 'bold',
-                    fontSize: '14px'
-                  }}>
-                    🟢 {job.status.toUpperCase()}
-                  </div>
-                </div>
-                
-                <div style={{ marginLeft: '25px', minWidth: '150px' }}>
-                  {renderApplyButton(job)}
-                </div>
-              </div>
-              
-              {renderEmployerControls(job)}
-            </div>
-          ))
-        )}
-      </div>
 
       <ApplicationModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          console.log('Modal closing');
+          setModalOpen(false);
+          setSelectedJob(null);
+        }}
         onSubmit={handleApply}
         jobTitle={selectedJob?.category}
       />

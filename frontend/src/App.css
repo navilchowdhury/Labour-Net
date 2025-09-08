@@ -1,5 +1,8 @@
+@import './styles/GlobalStyles.css';
+
 .App {
-  text-align: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--secondary-50) 0%, var(--primary-50) 100%);
 }
 
 .App-logo {

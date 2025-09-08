@@ -1,26 +1,36 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  role: { type: String, enum: ['worker', 'employer'], required: true },
   name: { type: String, required: true, unique: true },
-  contact: { type: String, required: true },
-  address: { type: String, required: true },
-  dob: { type: Date, required: true },
-  sex: { type: String, required: true },
+  contact: { type: String },
+  address: { type: String },
+  dob: { type: Date },
+  sex: { type: String, enum: ['male', 'female', 'other'] },
   password: { type: String, required: true },
-  // Worker-specific
+  role: { type: String, enum: ['worker', 'employer'], required: true },
   jobPreferences: [{ type: String }],
-  availability: String,
-  workHistory: String,
-  // Employer-specific
-  jobTypes: [String],
-  hiringPreferences: String,
-  isCompany: Boolean,
-    // NID Verification fields
-  nidNumber: { type: String },        // 10, 13, or 17 digits
-  nidName: { type: String },          // Name on the NID card
-  isNidVerified: { type: Boolean, default: false } // Has this user been verified?
+  availability: { type: String },
+  workHistory: [{ type: String }],
+  jobTypes: [{ type: String }],
+  hiringPreferences: [{ type: String }],
+  isCompany: { type: Boolean, default: false },
+  nidNumber: { type: String },
+  isNidVerified: { type: Boolean, default: false },
+
+  // Track how many times an employer has been reported
+  reportedCount: { type: Number, default: 0 }
+}, { timestamps: true });
+
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
-//module.exports = mongoose.model('User', userSchema);
-module.exports = mongoose.models.User || mongoose.model('User', userSchema);
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+module.exports = mongoose.model('User', userSchema);
