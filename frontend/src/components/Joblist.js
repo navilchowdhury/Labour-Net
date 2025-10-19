@@ -709,22 +709,64 @@ export default function JobList() {
                          {/* Work History */}
                          {workerProfiles[app.worker?._id].history?.length > 0 && (
                            <div>
-                                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Previous Work History:</p>
-                             {workerProfiles[app.worker?._id].history.slice(0, 3).map((job, idx) => (
-                                  <div key={idx} className="professional-card" style={{ marginBottom: '0.5rem' }}>
-                                    <div className="professional-card-body" style={{ padding: '0.75rem' }}>
-                                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                   {job.job?.category} - {job.job?.employer?.name}
-                                 </p>
-                                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                   {job.job?.workingHours} • {job.job?.salaryRange} • {job.job?.address}
-                                 </p>
-                                      <p style={{ margin: '0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                   Status: {job.status} • {new Date(job.createdAt).toLocaleDateString()}
-                                 </p>
-                                    </div>
-                               </div>
-                             ))}
+                                <p style={{ 
+                                  margin: '0 0 0.75rem 0', 
+                                  fontSize: '0.875rem', 
+                                  fontWeight: 'bold', 
+                                  color: 'var(--text-primary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}>
+                                  💼 Work Experience ({workerProfiles[app.worker?._id].history.length} jobs)
+                                </p>
+                             <div style={{ display: 'grid', gap: '6px' }}>
+                               {workerProfiles[app.worker?._id].history.slice(0, 3).map((job, idx) => (
+                                 <div key={idx} style={{
+                                   background: '#f8f9fa',
+                                   padding: '10px',
+                                   borderRadius: '6px',
+                                   border: '1px solid #e2e8f0',
+                                   display: 'flex',
+                                   justifyContent: 'space-between',
+                                   alignItems: 'center'
+                                 }}>
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                     <div style={{
+                                       background: '#3182ce',
+                                       color: 'white',
+                                       padding: '3px 6px',
+                                       borderRadius: '8px',
+                                       fontSize: '10px',
+                                       fontWeight: '600',
+                                       textTransform: 'uppercase'
+                                     }}>
+                                       {job.job?.category || 'Work'}
+                                     </div>
+                                     <div style={{ 
+                                       display: 'flex', 
+                                       alignItems: 'center', 
+                                       gap: '4px',
+                                       fontSize: '11px',
+                                       color: '#4a5568'
+                                     }}>
+                                       <span>📍</span>
+                                       <span>{job.job?.address || job.job?.location || 'Location not specified'}</span>
+                                     </div>
+                                   </div>
+                                   <div style={{
+                                     background: job.status === 'completed' ? '#38a169' : '#3182ce',
+                                     color: 'white',
+                                     padding: '2px 6px',
+                                     borderRadius: '8px',
+                                     fontSize: '9px',
+                                     fontWeight: '600'
+                                   }}>
+                                     {job.status === 'completed' ? '✓ Completed' : 'In Progress'}
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
                            </div>
                          )}
                        </div>

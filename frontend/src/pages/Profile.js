@@ -76,14 +76,38 @@ export default function Profile() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/auth/profile', form, {
+      
+      // Prepare form data, ensuring arrays are properly formatted
+      const formData = {
+        ...form,
+        jobPreferences: Array.isArray(form.jobPreferences) ? form.jobPreferences : (form.jobPreferences ? form.jobPreferences.split(',').map(s => s.trim()) : [])
+      };
+
+      console.log('Updating profile with data:', formData);
+      
+      const response = await axios.put('http://localhost:5000/api/auth/profile', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      console.log('Profile update response:', response.data);
+      
       setSuccess('Profile updated successfully!');
       setEditing(false);
-      fetchProfile();
+      
+      // Update local state with the response data
+      setUser(response.data);
+      setForm(response.data);
+      
+      // Update localStorage with new user data
+      const updatedUserData = {
+        ...JSON.parse(localStorage.getItem('user') || '{}'),
+        ...response.data
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUserData));
+      
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
+      console.error('Profile update error:', error);
       setError(error.response?.data?.error || 'Error updating profile');
       setTimeout(() => setError(''), 3000);
     }
@@ -392,46 +416,6 @@ export default function Profile() {
               {user.role === 'employer' && (
                 <>
                   <div style={{ marginBottom: '25px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
-                      🏷️ Job Types
-                    </label>
-                    <input
-                      name="jobTypes"
-                      value={Array.isArray(form.jobTypes) ? form.jobTypes.join(', ') : (form.jobTypes || '')}
-                      onChange={handleChange}
-                      placeholder="e.g., plumbing, electrical, cleaning"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        border: '2px solid #e2e8f0',
-                        fontSize: '16px'
-                      }}
-                    />
-                  </div>
-                  
-                  <div style={{ marginBottom: '25px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.dark }}>
-                      👥 Hiring Preferences
-                    </label>
-                    <textarea
-                      name="hiringPreferences"
-                      value={form.hiringPreferences || ''}
-                      onChange={handleChange}
-                      placeholder="Describe your hiring preferences..."
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '10px',
-                        border: '2px solid #e2e8f0',
-                        fontSize: '16px',
-                        minHeight: '100px',
-                        resize: 'vertical'
-                      }}
-                    />
-                  </div>
-                  
-                  <div style={{ marginBottom: '25px' }}>
                     <label style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -521,9 +505,98 @@ export default function Profile() {
                     <p style={{ margin: '5px 0', color: colors.dark }}>
                       <strong>Availability:</strong> {user.availability || 'Not specified'}
                     </p>
-                    <p style={{ margin: '5px 0', color: colors.dark }}>
-                      <strong>Work History:</strong> {user.workHistory || 'Not specified'}
-                    </p>
+                    <div style={{ margin: '10px 0' }}>
+                      <strong style={{ color: colors.dark, display: 'block', marginBottom: '8px' }}>Work Experience:</strong>
+                      {(() => {
+                        try {
+                          if (user.workHistory) {
+                            const workHistory = JSON.parse(user.workHistory);
+                            if (workHistory.length > 0) {
+                              return (
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                  {workHistory.slice(0, 5).map((job, index) => (
+                                    <div key={index} style={{
+                                      background: colors.white,
+                                      padding: '12px',
+                                      borderRadius: '8px',
+                                      border: `1px solid ${colors.lightGray}`,
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                          background: colors.primary,
+                                          color: colors.white,
+                                          padding: '4px 8px',
+                                          borderRadius: '12px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          textTransform: 'uppercase'
+                                        }}>
+                                          {job.jobCategory}
+                                        </div>
+                                        <div style={{ 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          gap: '6px',
+                                          fontSize: '13px',
+                                          color: colors.gray
+                                        }}>
+                                          <span>📍</span>
+                                          <span>{job.location}</span>
+                                        </div>
+                                      </div>
+                                      <div style={{
+                                        background: colors.success,
+                                        color: colors.white,
+                                        padding: '3px 8px',
+                                        borderRadius: '10px',
+                                        fontSize: '10px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ✓ Completed
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {workHistory.length > 5 && (
+                                    <p style={{ 
+                                      margin: '8px 0 0 0', 
+                                      fontSize: '12px', 
+                                      color: colors.gray, 
+                                      fontStyle: 'italic' 
+                                    }}>
+                                      +{workHistory.length - 5} more jobs
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            }
+                          }
+                          return (
+                            <p style={{ 
+                              margin: '0', 
+                              fontSize: '14px', 
+                              color: colors.gray,
+                              fontStyle: 'italic'
+                            }}>
+                              No work experience yet
+                            </p>
+                          );
+                        } catch (e) {
+                          return (
+                            <p style={{ 
+                              margin: '0', 
+                              fontSize: '14px', 
+                              color: colors.gray,
+                              fontStyle: 'italic'
+                            }}>
+                              No work experience yet
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
                   </div>
                 )}
 
@@ -648,6 +721,146 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+
+              {/* Work History Section for Workers */}
+              {user?.role === 'worker' && (
+                <div style={{ 
+                  background: colors.light, 
+                  padding: '25px', 
+                  borderRadius: '12px',
+                  marginBottom: '25px',
+                  border: `2px solid ${colors.lightGray}`
+                }}>
+                  <h3 style={{ 
+                    color: colors.dark, 
+                    marginBottom: '20px', 
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    💼 Work History
+                  </h3>
+                  
+                  {user.workHistory ? (
+                    <div>
+                      {(() => {
+                        try {
+                          const workHistory = JSON.parse(user.workHistory);
+                          return workHistory.length > 0 ? (
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                              {workHistory.slice(0, 10).map((job, index) => (
+                                <div key={index} style={{
+                                  background: colors.white,
+                                  padding: '16px',
+                                  borderRadius: '12px',
+                                  border: `1px solid ${colors.lightGray}`,
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                  transition: 'all 0.2s ease',
+                                  position: 'relative'
+                                }}>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    marginBottom: '8px'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                      <div style={{
+                                        background: colors.primary,
+                                        color: colors.white,
+                                        padding: '6px 12px',
+                                        borderRadius: '20px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                      }}>
+                                        {job.jobCategory}
+                                      </div>
+                                      <div style={{
+                                        background: colors.success,
+                                        color: colors.white,
+                                        padding: '4px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '11px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ✓ Completed
+                                      </div>
+                                    </div>
+                                    <div style={{
+                                      fontSize: '12px',
+                                      color: colors.gray,
+                                      fontWeight: '500'
+                                    }}>
+                                      {new Date(job.completedDate).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        year: 'numeric'
+                                      })}
+                                    </div>
+                                  </div>
+                                  
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px',
+                                    fontSize: '14px',
+                                    color: colors.dark,
+                                    fontWeight: '500'
+                                  }}>
+                                    <span style={{ fontSize: '16px' }}>📍</span>
+                                    <span>{job.location}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ 
+                              textAlign: 'center', 
+                              padding: '40px 20px',
+                              color: colors.gray
+                            }}>
+                              <div style={{ fontSize: '48px', marginBottom: '15px' }}>💼</div>
+                              <h4 style={{ margin: '0 0 10px 0', color: colors.gray }}>No Work History Yet</h4>
+                              <p style={{ margin: '0', fontSize: '14px' }}>
+                                Complete your first job to start building your work history!
+                              </p>
+                            </div>
+                          );
+                        } catch (e) {
+                          return (
+                            <div style={{ 
+                              textAlign: 'center', 
+                              padding: '40px 20px',
+                              color: colors.gray
+                            }}>
+                              <div style={{ fontSize: '48px', marginBottom: '15px' }}>💼</div>
+                              <h4 style={{ margin: '0 0 10px 0', color: colors.gray }}>No Work History Yet</h4>
+                              <p style={{ margin: '0', fontSize: '14px' }}>
+                                Complete your first job to start building your work history!
+                              </p>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '40px 20px',
+                      color: colors.gray
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '15px' }}>💼</div>
+                      <h4 style={{ margin: '0 0 10px 0', color: colors.gray }}>No Work History Yet</h4>
+                      <p style={{ margin: '0', fontSize: '14px' }}>
+                        Complete your first job to start building your work history!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ textAlign: 'center' }}>
                 <button

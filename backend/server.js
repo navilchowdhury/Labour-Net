@@ -4,6 +4,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Import cleanup service
+const cleanupService = require('./utils/cleanupService');
+
 // Set default environment variables only if not already set by .env
 process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/labour-net';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'labour-net-secret-key-2024';
@@ -47,6 +50,13 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB');
     console.log('Database URL:', process.env.MONGO_URI);
+    
+    // Start cleanup service
+    setTimeout(() => {
+      cleanupService.validateUserData();
+      cleanupService.startScheduledCleanup();
+    }, 5000); // Wait 5 seconds after server start
+    
     app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));
   })
   .catch(err => {

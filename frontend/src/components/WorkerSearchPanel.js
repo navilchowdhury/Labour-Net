@@ -245,12 +245,76 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
 
               {selectedWorker.workHistory?.length > 0 && (
                 <div className="profile-section">
-                  <h4>Experience Summary</h4>
-                  <ul>
-                    {selectedWorker.workHistory.map((work, index) => (
-                      <li key={index}>{work}</li>
-                    ))}
-                  </ul>
+                  <h4 style={{ 
+                    margin: '0 0 12px 0', 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#2d3748',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    💼 Work Experience ({selectedWorker.workHistory?.length || 0} jobs)
+                  </h4>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {selectedWorker.workHistory.slice(0, 5).map((work, index) => {
+                      // Parse work history if it's a string
+                      let workData = work;
+                      if (typeof work === 'string') {
+                        try {
+                          workData = JSON.parse(work);
+                        } catch (e) {
+                          workData = { jobCategory: work, location: 'Not specified' };
+                        }
+                      }
+                      
+                      return (
+                        <div key={index} style={{
+                          background: '#f8f9fa',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              background: '#3182ce',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              textTransform: 'uppercase'
+                            }}>
+                              {workData.jobCategory || workData.jobTitle || 'Work'}
+                            </div>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px',
+                              fontSize: '13px',
+                              color: '#4a5568'
+                            }}>
+                              <span>📍</span>
+                              <span>{workData.location || workData.address || 'Location not specified'}</span>
+                            </div>
+                          </div>
+                          <div style={{
+                            background: '#38a169',
+                            color: 'white',
+                            padding: '3px 8px',
+                            borderRadius: '10px',
+                            fontSize: '10px',
+                            fontWeight: '600'
+                          }}>
+                            ✓ Completed
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

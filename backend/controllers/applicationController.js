@@ -78,7 +78,7 @@ exports.getJobApplications = async (req, res) => {
 
     // Get all applications for this job
     const applications = await Application.find({ job: jobId })
-      .populate('worker', 'name contact jobPreferences availability address isNidVerified')
+      .populate('worker', 'name contact jobPreferences availability address isNidVerified workHistory')
       .sort({ createdAt: -1 });
 
     console.log(`Found ${applications.length} applications for job ${jobId}`);
@@ -86,7 +86,7 @@ exports.getJobApplications = async (req, res) => {
     // Enhance applications with worker job history and reviews
     const enhancedApplications = await Promise.all(
       applications.map(async (application) => {
-        // Get worker's job history
+        // Get worker's job history from applications
         const assignedJobs = await Application.find({
           worker: application.worker._id,
           status: { $in: ['assigned', 'completed'] }
@@ -112,8 +112,18 @@ exports.getJobApplications = async (req, res) => {
           ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
           : 0;
 
-        // Format job history with reviews
-        const jobHistory = await Promise.all(assignedJobs.map(async (app) => {
+        // Parse work history from user model
+        let userWorkHistory = [];
+        try {
+          if (application.worker.workHistory) {
+            userWorkHistory = JSON.parse(application.worker.workHistory);
+          }
+        } catch (e) {
+          console.log('Error parsing work history:', e);
+        }
+
+        // Format job history from applications
+        const applicationJobHistory = await Promise.all(assignedJobs.map(async (app) => {
           const jobReview = reviews.find(review => 
             review.job._id.toString() === app.job._id.toString()
           );
@@ -136,11 +146,36 @@ exports.getJobApplications = async (req, res) => {
           };
         }));
 
+        // Combine user work history with application job history
+        const combinedJobHistory = [
+          ...userWorkHistory.map(job => ({
+            jobId: job.jobId || 'unknown',
+            jobTitle: job.jobTitle,
+            jobCategory: job.jobCategory,
+            employerName: job.employerName,
+            isCompany: job.isCompany || false,
+            status: 'completed',
+            assignedDate: job.completedDate,
+            salary: job.salary,
+            location: job.location,
+            review: null
+          })),
+          ...applicationJobHistory
+        ];
+
+        // Remove duplicates and sort by date
+        const uniqueJobHistory = combinedJobHistory
+          .filter((job, index, self) => 
+            index === self.findIndex(j => j.jobId === job.jobId)
+          )
+          .sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate))
+          .slice(0, 10);
+
         return {
           ...application.toObject(),
           worker: {
             ...application.worker.toObject(),
-            jobHistory: jobHistory,
+            jobHistory: uniqueJobHistory,
             reviews: {
               total: reviews.length,
               averageRating: Math.round(averageRating * 10) / 10,
@@ -214,7 +249,7 @@ exports.assignWorker = async (req, res) => {
 
     await Application.findOneAndUpdate(
       { job: jobId, worker: workerId },
-      { $set: { status: 'assigned' } }
+      { $set: { status: 'assigned', assignedAt: new Date() } }
     );
 
     // Clean up job match notifications

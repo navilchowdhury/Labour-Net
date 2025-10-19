@@ -29,6 +29,18 @@ export default function WorkerApplications() {
     fetchApplications();
   }, [navigate]);
 
+  // Refresh applications when component becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchApplications();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const fetchApplications = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -83,6 +95,7 @@ export default function WorkerApplications() {
       case 'accepted': return '#28a745';
       case 'rejected': return '#dc3545';
       case 'assigned': return '#007bff';
+      case 'completed': return '#28a745';
       default: return '#6c757d';
     }
   };
@@ -93,6 +106,7 @@ export default function WorkerApplications() {
       case 'accepted': return '✓ Application Accepted';
       case 'rejected': return '✗ Application Rejected';
       case 'assigned': return '🎯 Job Assigned to You!';
+      case 'completed': return '✅ Job Completed Successfully!';
       default: return status;
     }
   };
@@ -109,8 +123,20 @@ export default function WorkerApplications() {
   return (
     <div className="professional-container">
       <div className="professional-page-header">
-        <h1 className="professional-page-title">My Job Applications</h1>
-        <p className="professional-page-subtitle">Track the status of your job applications and manage your opportunities</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h1 className="professional-page-title">My Job Applications</h1>
+            <p className="professional-page-subtitle">Track the status of your job applications and manage your opportunities</p>
+          </div>
+          <button 
+            onClick={fetchApplications}
+            disabled={loading}
+            className="professional-btn professional-btn-secondary"
+            style={{ marginLeft: '1rem' }}
+          >
+            {loading ? '⏳ Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
       
       {applications.length === 0 ? (

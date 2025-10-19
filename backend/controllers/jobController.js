@@ -163,6 +163,44 @@ exports.markJobCompleted = async (req, res) => {
       { job: jobId, worker: job.assignedWorker, status: 'assigned' },
       { status: 'completed' }
     );
+
+    // Update worker's work history with completed job
+    if (job.assignedWorker) {
+      const worker = await User.findById(job.assignedWorker);
+      if (worker) {
+        const jobExperience = {
+          jobTitle: job.title || `${job.category} Position`,
+          jobCategory: job.category,
+          employerName: req.user.name,
+          completedDate: new Date().toISOString(),
+          salary: job.salary || job.salaryRange,
+          location: job.location || job.address,
+          description: job.description
+        };
+
+        // Parse existing work history or initialize empty array
+        let workHistory = [];
+        try {
+          workHistory = worker.workHistory ? JSON.parse(worker.workHistory) : [];
+        } catch (e) {
+          workHistory = [];
+        }
+
+        // Add new job experience
+        workHistory.unshift(jobExperience);
+
+        // Keep only last 20 jobs to prevent excessive data
+        if (workHistory.length > 20) {
+          workHistory = workHistory.slice(0, 20);
+        }
+
+        // Update worker's work history
+        worker.workHistory = JSON.stringify(workHistory);
+        await worker.save();
+
+        console.log(`Updated work history for worker ${worker._id} with completed job ${jobId}`);
+      }
+    }
     
     res.json({ message: 'Job marked as completed', job });
   } catch (err) {

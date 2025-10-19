@@ -29,8 +29,7 @@ export default function Register() {
 
       const payload = {
         ...form,
-        jobPreferences: form.jobPreferences ? form.jobPreferences.split(',').map(s => s.trim()) : [],
-        jobTypes: form.jobTypes ? form.jobTypes.split(',').map(s => s.trim()) : [],
+        jobPreferences: Array.isArray(form.jobPreferences) ? form.jobPreferences : (form.jobPreferences ? form.jobPreferences.split(',').map(s => s.trim()) : []),
         nidNumber,
         isNidVerified
       };

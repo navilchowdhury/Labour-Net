@@ -27,7 +27,7 @@ const ChatPanel = ({ isOpen, onClose, user }) => {
   const fetchConversations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('/api/messages/conversations', {
+      const response = await axios.get('http://localhost:5000/api/messages/conversations', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setConversations(response.data);
@@ -40,7 +40,7 @@ const ChatPanel = ({ isOpen, onClose, user }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`/api/messages/conversation/${partnerId}`, {
+      const response = await axios.get(`http://localhost:5000/api/messages/conversation/${partnerId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessages(response.data);
@@ -56,7 +56,7 @@ const ChatPanel = ({ isOpen, onClose, user }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('/api/messages/send', {
+      const response = await axios.post('http://localhost:5000/api/messages/send', {
         receiverId: selectedConversation.partner._id,
         content: newMessage
       }, {

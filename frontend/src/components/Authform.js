@@ -4,16 +4,36 @@ export default function AuthForm({ type, onSubmit }) {
   const [role, setRole] = useState('worker');
   const [form, setForm] = useState({
     name: '', contact: '', address: '', dob: '', sex: '',
-    password: '', jobPreferences: '', availability: '', workHistory: '',
+    password: '', jobPreferences: [], availability: '', workHistory: '',
     jobTypes: '', hiringPreferences: '', isCompany: false,
     nidNumber: '', nidPhoto: null
   });
+
+  const jobCategories = ['plumbing', 'cooking', 'painting', 'electrical', 'cleaning'];
+  const availabilityOptions = [
+    'full-time',
+    'part-time', 
+    'weekends',
+    'evenings',
+    'flexible',
+    'monday-friday',
+    'saturday-sunday'
+  ];
 
   const handleChange = e => {
     const { name, value, type: inputType, checked, files } = e.target;
     setForm(prev => ({
       ...prev,
       [name]: inputType === 'checkbox' ? checked : (inputType === 'file' ? files[0] : value)
+    }));
+  };
+
+  const handleJobPreferenceChange = (category) => {
+    setForm(prev => ({
+      ...prev,
+      jobPreferences: prev.jobPreferences.includes(category)
+        ? prev.jobPreferences.filter(pref => pref !== category)
+        : [...prev.jobPreferences, category]
     }));
   };
 
@@ -65,24 +85,82 @@ export default function AuthForm({ type, onSubmit }) {
           {role === 'worker' && (
             <>
               <div style={{ marginBottom: 12 }}>
-                <input name="jobPreferences" value={form.jobPreferences} onChange={handleChange} placeholder="Job Preferences (comma separated)" style={{ width: '100%', padding: 8 }} />
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: '600' }}>
+                  Job Preferences (Select all that apply):
+                </label>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                  gap: '8px',
+                  border: '1px solid #ddd',
+                  padding: '12px',
+                  borderRadius: '4px',
+                  background: '#fff'
+                }}>
+                  {jobCategories.map(category => (
+                    <label key={category} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '4px',
+                      background: form.jobPreferences.includes(category) ? '#e3f2fd' : 'transparent',
+                      border: `1px solid ${form.jobPreferences.includes(category) ? '#2196f3' : '#ddd'}`,
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={form.jobPreferences.includes(category)}
+                        onChange={() => handleJobPreferenceChange(category)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      <span style={{ 
+                        textTransform: 'capitalize',
+                        fontSize: '14px',
+                        fontWeight: form.jobPreferences.includes(category) ? '600' : '400'
+                      }}>
+                        {category}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div style={{ marginBottom: 12 }}>
-                <input name="availability" value={form.availability} onChange={handleChange} placeholder="Availability" style={{ width: '100%', padding: 8 }} />
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: '600' }}>
+                  Availability:
+                </label>
+                <select name="availability" value={form.availability} onChange={handleChange} required style={{ width: '100%', padding: 8, border: '1px solid #ddd', borderRadius: '4px' }}>
+                  <option value="">Select Availability</option>
+                  {availabilityOptions.map(option => (
+                    <option key={option} value={option}>
+                      {option.charAt(0).toUpperCase() + option.slice(1).replace('-', ' ')}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div style={{ marginBottom: 12 }}>
-                <input name="workHistory" value={form.workHistory} onChange={handleChange} placeholder="Work History" style={{ width: '100%', padding: 8 }} />
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: '600' }}>
+                  Work History:
+                </label>
+                <textarea 
+                  name="workHistory" 
+                  value={form.workHistory} 
+                  onChange={handleChange} 
+                  placeholder="Describe your work experience and skills..." 
+                  style={{ 
+                    width: '100%', 
+                    padding: 8, 
+                    border: '1px solid #ddd', 
+                    borderRadius: '4px',
+                    minHeight: '80px',
+                    resize: 'vertical'
+                  }} 
+                />
               </div>
             </>
           )}
           {role === 'employer' && (
             <>
-              <div style={{ marginBottom: 12 }}>
-                <input name="jobTypes" value={form.jobTypes} onChange={handleChange} placeholder="Job Types (comma separated)" style={{ width: '100%', padding: 8 }} />
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <input name="hiringPreferences" value={form.hiringPreferences} onChange={handleChange} placeholder="Hiring Preferences" style={{ width: '100%', padding: 8 }} />
-              </div>
               <div style={{ marginBottom: 12 }}>
                 <label>
                   <input type="checkbox" name="isCompany" checked={form.isCompany} onChange={handleChange} /> Is Company?
