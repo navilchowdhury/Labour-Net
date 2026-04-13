@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 export default function NotificationPanel({ isOpen, onClose, token }) {
@@ -6,15 +6,12 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen && token) {
-      fetchNotifications();
-    }
-  }, [isOpen, token]);
+  const fetchNotifications = useCallback(async () => {
+    if (!isOpen || !token) return;
 
-  const fetchNotifications = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await axios.get('http://localhost:5000/api/notifications', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -25,17 +22,24 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isOpen, token]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(`http://localhost:5000/api/notifications/${notificationId}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notif => 
+      await axios.patch(
+        `http://localhost:5000/api/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      setNotifications((prev) =>
+        prev.map((notif) =>
           notif._id === notificationId ? { ...notif, isRead: true } : notif
         )
       );
@@ -46,12 +50,15 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
 
   const markAllAsRead = async () => {
     try {
-      await axios.patch('http://localhost:5000/api/notifications/mark-all-read', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update local state
-      setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+      await axios.patch(
+        'http://localhost:5000/api/notifications/mark-all-read',
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
     } catch (err) {
       console.error('Error marking all notifications as read:', err);
     }
@@ -60,36 +67,41 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'flex-start',
-      paddingTop: '80px'
-    }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '600px',
-        maxHeight: '70vh',
-        overflow: 'hidden',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 1000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        paddingTop: '80px'
+      }}
+    >
+      <div
+        style={{
+          background: 'white',
+          borderRadius: '12px',
+          width: '90%',
+          maxWidth: '600px',
+          maxHeight: '70vh',
+          overflow: 'hidden',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+        }}
+      >
+        <div
+          style={{
+            padding: '20px',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
           <h3 style={{ margin: 0, color: '#2d3e50' }}>Notifications</h3>
           <div>
             <button
@@ -122,7 +134,6 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
           </div>
         </div>
 
-        {/* Content */}
         <div style={{ overflowY: 'auto', maxHeight: 'calc(70vh - 80px)' }}>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>
@@ -137,7 +148,7 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
               No notifications yet
             </div>
           ) : (
-            notifications.map(notification => (
+            notifications.map((notification) => (
               <div
                 key={notification._id}
                 style={{
@@ -148,45 +159,55 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
                 }}
                 onClick={() => !notification.isRead && markAsRead(notification._id)}
               >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '10px'
-                }}>
-                  <h4 style={{
-                    margin: 0,
-                    color: notification.isRead ? '#7f8c8d' : '#2d3e50',
-                    fontSize: '16px'
-                  }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '10px'
+                  }}
+                >
+                  <h4
+                    style={{
+                      margin: 0,
+                      color: notification.isRead ? '#7f8c8d' : '#2d3e50',
+                      fontSize: '16px'
+                    }}
+                  >
                     {notification.title}
                   </h4>
                   {!notification.isRead && (
-                    <div style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      background: '#e74c3c'
-                    }} />
+                    <div
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: '#e74c3c'
+                      }}
+                    />
                   )}
                 </div>
-                
-                <p style={{
-                  margin: '5px 0',
-                  color: notification.isRead ? '#7f8c8d' : '#34495e',
-                  fontSize: '14px'
-                }}>
+
+                <p
+                  style={{
+                    margin: '5px 0',
+                    color: notification.isRead ? '#7f8c8d' : '#34495e',
+                    fontSize: '14px'
+                  }}
+                >
                   {notification.message}
                 </p>
-                
+
                 {notification.job && (
-                  <div style={{
-                    background: 'white',
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginTop: '10px',
-                    border: '1px solid #e2e8f0'
-                  }}>
+                  <div
+                    style={{
+                      background: 'white',
+                      padding: '15px',
+                      borderRadius: '8px',
+                      marginTop: '10px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
                     <h5 style={{ margin: '0 0 10px 0', color: '#2d3e50' }}>
                       Job Details
                     </h5>
@@ -197,27 +218,30 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
                       <p><strong>Address:</strong> {notification.job.address}</p>
                       <p><strong>Description:</strong> {notification.job.description}</p>
                       {notification.job.employer && (
-                        <p><strong>Employer:</strong> {notification.job.employer.name} ({notification.job.employer.contact})</p>
+                        <p>
+                          <strong>Employer:</strong> {notification.job.employer.name} ({notification.job.employer.contact})
+                        </p>
                       )}
                     </div>
-                    
-                    {/* Apply Button */}
+
                     <button
                       onClick={async () => {
                         try {
-                          const response = await axios.post('http://localhost:5000/api/applications/', {
-                            job: notification.job._id,
-                            coverLetter: `I'm interested in this ${notification.job.category} position. I have relevant experience and am available to start immediately.`
-                          }, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          
+                          const response = await axios.post(
+                            'http://localhost:5000/api/applications/',
+                            {
+                              job: notification.job._id,
+                              coverLetter: `I'm interested in this ${notification.job.category} position. I have relevant experience and am available to start immediately.`
+                            },
+                            {
+                              headers: { Authorization: `Bearer ${token}` }
+                            }
+                          );
+
                           if (response.status === 201) {
                             alert('Application submitted successfully!');
-                            // Mark notification as read
-                            markAsRead(notification._id);
-                            // Add a new line here to refresh the notifications
-                            fetchNotifications();
+                            await markAsRead(notification._id);
+                            await fetchNotifications();
                           }
                         } catch (err) {
                           console.error('Application error:', err);
@@ -239,12 +263,14 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
                     </button>
                   </div>
                 )}
-                
-                <div style={{
-                  fontSize: '12px',
-                  color: '#95a5a6',
-                  marginTop: '10px'
-                }}>
+
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#95a5a6',
+                    marginTop: '10px'
+                  }}
+                >
                   {new Date(notification.createdAt).toLocaleString()}
                 </div>
               </div>
@@ -254,4 +280,4 @@ export default function NotificationPanel({ isOpen, onClose, token }) {
       </div>
     </div>
   );
-} 
+}
