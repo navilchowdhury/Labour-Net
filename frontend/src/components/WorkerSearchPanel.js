@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import DirectChat from './DirectChat';
 import '../styles/WorkerSearchPanel.css';
@@ -18,19 +18,12 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
   const jobCategories = ['Plumbing', 'Cooking', 'Painting', 'Electrical', 'Cleaning'];
   const availabilityOptions = ['full-time', 'part-time', 'weekends', 'flexible'];
 
-  useEffect(() => {
-    const role = localStorage.getItem('role');
-    if (role === 'employer') {
-      searchWorkers();
-    }
-  }, []);
-
-  const searchWorkers = async () => {
+  const searchWorkers = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       const params = new URLSearchParams();
-      
+
       if (filters.address) params.append('address', filters.address);
       if (filters.jobCategory) params.append('jobCategory', filters.jobCategory);
       if (filters.availability) params.append('availability', filters.availability);
@@ -51,10 +44,17 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    const role = localStorage.getItem('role');
+    if (role === 'employer') {
+      searchWorkers();
+    }
+  }, [searchWorkers]);
 
   const handleFilterChange = (field, value) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
+    setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
   const viewWorkerProfile = async (workerId) => {
@@ -108,7 +108,7 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
             onChange={(e) => handleFilterChange('jobCategory', e.target.value)}
           >
             <option value="">All Categories</option>
-            {jobCategories.map(category => (
+            {jobCategories.map((category) => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
@@ -121,7 +121,7 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
             onChange={(e) => handleFilterChange('availability', e.target.value)}
           >
             <option value="">Any Availability</option>
-            {availabilityOptions.map(option => (
+            {availabilityOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
@@ -139,13 +139,13 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
           {workers.length === 0 ? (
             <p className="no-workers">No workers found matching your criteria.</p>
           ) : (
-            workers.map(worker => (
+            workers.map((worker) => (
               <div key={worker._id} className="worker-card">
                 <div className="worker-info">
                   <h3>{worker.name}</h3>
                   <p className="location">📍 {worker.address || 'Address not specified'}</p>
                   <p className="availability">🕒 {worker.availability || 'Availability not specified'}</p>
-                  
+
                   <div className="job-preferences">
                     <strong>Skills:</strong>
                     <div className="skills-tags">
@@ -163,13 +163,13 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
                 </div>
 
                 <div className="worker-actions">
-                  <button 
+                  <button
                     onClick={() => viewWorkerProfile(worker._id)}
                     className="view-profile-btn"
                   >
                     View Profile
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleMessageWorker(worker)}
                     className="message-btn"
                   >
@@ -189,7 +189,7 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
               <h3>{selectedWorker.name}'s Profile</h3>
               <button onClick={() => setSelectedWorker(null)} className="close-btn">×</button>
             </div>
-            
+
             <div className="modal-body">
               <div className="profile-section">
                 <h4>Contact Information</h4>
@@ -236,7 +236,7 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
                 {selectedWorker.reviews && selectedWorker.reviews.total > 0 && (
                   <div className="worker-rating-summary">
                     <span className="average-rating">
-                      ★ {selectedWorker.reviews.averageRating}/5 
+                      ★ {selectedWorker.reviews.averageRating}/5
                       ({selectedWorker.reviews.total} reviews)
                     </span>
                   </div>
@@ -245,20 +245,21 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
 
               {selectedWorker.workHistory?.length > 0 && (
                 <div className="profile-section">
-                  <h4 style={{ 
-                    margin: '0 0 12px 0', 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#2d3748',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
+                  <h4
+                    style={{
+                      margin: '0 0 12px 0',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#2d3748',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
                     💼 Work Experience ({selectedWorker.workHistory?.length || 0} jobs)
                   </h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {selectedWorker.workHistory.slice(0, 5).map((work, index) => {
-                      // Parse work history if it's a string
                       let workData = work;
                       if (typeof work === 'string') {
                         try {
@@ -267,48 +268,57 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
                           workData = { jobCategory: work, location: 'Not specified' };
                         }
                       }
-                      
+
                       return (
-                        <div key={index} style={{
-                          background: '#f8f9fa',
-                          padding: '12px',
-                          borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}>
+                        <div
+                          key={index}
+                          style={{
+                            background: '#f8f9fa',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                              background: '#3182ce',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '12px',
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              textTransform: 'uppercase'
-                            }}>
+                            <div
+                              style={{
+                                background: '#3182ce',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textTransform: 'uppercase'
+                              }}
+                            >
                               {workData.jobCategory || workData.jobTitle || 'Work'}
                             </div>
-                            <div style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '6px',
-                              fontSize: '13px',
-                              color: '#4a5568'
-                            }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '13px',
+                                color: '#4a5568'
+                              }}
+                            >
                               <span>📍</span>
                               <span>{workData.location || workData.address || 'Location not specified'}</span>
                             </div>
                           </div>
-                          <div style={{
-                            background: '#38a169',
-                            color: 'white',
-                            padding: '3px 8px',
-                            borderRadius: '10px',
-                            fontSize: '10px',
-                            fontWeight: '600'
-                          }}>
+                          <div
+                            style={{
+                              background: '#38a169',
+                              color: 'white',
+                              padding: '3px 8px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: '600'
+                            }}
+                          >
                             ✓ Completed
                           </div>
                         </div>
@@ -327,7 +337,7 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
             </div>
 
             <div className="modal-footer">
-              <button 
+              <button
                 onClick={() => handleMessageWorker(selectedWorker)}
                 className="message-btn"
               >
@@ -338,14 +348,13 @@ const WorkerSearchPanel = ({ user, onMessageWorker }) => {
         </div>
       )}
 
-      {/* Direct Chat Integration */}
       {showChat && chatWorker && (
         <div className="chat-overlay">
           <div className="chat-container">
-            <DirectChat 
+            <DirectChat
               recipientId={chatWorker._id}
               recipientName={chatWorker.name}
-              currentUser={{ 
+              currentUser={{
                 id: localStorage.getItem('userId') || JSON.parse(localStorage.getItem('user') || '{}').id,
                 role: localStorage.getItem('role')
               }}
