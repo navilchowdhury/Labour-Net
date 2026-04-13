@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import '../styles/DirectChat.css';
 
@@ -10,38 +10,46 @@ const DirectChat = ({ recipientId, recipientName, currentUser, onClose }) => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    if (recipientId) {
-      fetchMessages();
-    }
-  }, [recipientId]);
+  const fetchMessages = useCallback(async () => {
+    if (!recipientId) return;
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const fetchMessages = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/messages/conversation/${recipientId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+
+      const response = await axios.get(
+        `http://localhost:5000/api/messages/conversation/${recipientId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
       setMessages(response.data);
-      
-      // Mark messages as read
-      await axios.put(`http://localhost:5000/api/messages/conversation/${recipientId}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+
+      await axios.put(
+        `http://localhost:5000/api/messages/conversation/${recipientId}/read`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [recipientId]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -50,15 +58,19 @@ const DirectChat = ({ recipientId, recipientName, currentUser, onClose }) => {
     try {
       setSending(true);
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5000/api/messages/send', {
-        receiverId: recipientId,
-        content: newMessage.trim()
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
 
-      // Add the new message to the local state
-      setMessages(prev => [...prev, response.data]);
+      const response = await axios.post(
+        'http://localhost:5000/api/messages/send',
+        {
+          receiverId: recipientId,
+          content: newMessage.trim()
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      setMessages((prev) => [...prev, response.data]);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -99,7 +111,10 @@ const DirectChat = ({ recipientId, recipientName, currentUser, onClose }) => {
           </div>
         ) : (
           messages.map((message, index) => {
-            const isCurrentUser = message.sender === currentUser.id || message.sender._id === currentUser.id;
+            const isCurrentUser =
+              message.sender === currentUser.id ||
+              message.sender?._id === currentUser.id;
+
             return (
               <div
                 key={message._id || index}
@@ -133,8 +148,8 @@ const DirectChat = ({ recipientId, recipientName, currentUser, onClose }) => {
             className="chat-input"
             disabled={sending}
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="send-btn"
             disabled={!newMessage.trim() || sending}
           >
